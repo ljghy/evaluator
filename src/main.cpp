@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 
 #include "evaluator/Context.h"
@@ -5,7 +6,8 @@ std::unordered_map<std::string, std::function<void(evaluator::Context&)>>
     commandTable{
         {"exit", [](evaluator::Context&) { exit(0); }},
         {"math", [](evaluator::Context& context) { context.importMath(); }},
-        {"view", [](evaluator::Context& context)
+        {"view",
+         [](evaluator::Context& context)
          {
              std::cout << "Variables:\n";
              for (const auto& p : context.varTable)
@@ -15,38 +17,91 @@ std::unordered_map<std::string, std::function<void(evaluator::Context&)>>
              for (const auto& p : context.funcTable)
                  std::cout << p.first << ", ";
              std::cout << '\n';
-         }}};
-int main()
+         }}
+
+    };
+
+void process(const std::string& input, evaluator::Context& context,
+             std::vector<std::string>& record)
+{
+    if (input.empty()) return;
+
+    if (input[0] == '!')
+    {
+        auto cmd = input.substr(1);
+        while (cmd.back() == ' ' || cmd.back() == '\n' || cmd.back() == '\t' ||
+               cmd.back() == '\r')
+            cmd.pop_back();
+        if (cmd.substr(0, 4) == "save")
+        {
+            std::string path = cmd.size() == 4 ? "./a.txt" : cmd.substr(5);
+            std::ofstream os(path);
+            if (!os)
+            {
+                std::cout << "failed to save to file " << path << '\n';
+                return;
+            }
+            for (const auto& s : record) os << s << '\n';
+            std::cout << "saved to " << path << '\n';
+            os.close();
+            return;
+        }
+        auto ite = commandTable.find(cmd);
+        if (ite != commandTable.end())
+        {
+            (ite->second)(context);
+            record.push_back(input);
+        }
+        else
+            std::cout << "unknown command\n";
+    }
+    else
+    {
+        try
+        {
+            record.push_back(input);
+            auto ret = context.exec(input);
+            if (ret.first == evaluator::ExprType::EXPR)
+                std::cout << ret.second << '\n';
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+            record.pop_back();
+        }
+    }
+}
+
+int main(int argc, char* argv[])
 {
     evaluator::Context context;
+    std::vector<std::string> record;
+
+    if (argc == 2)
+    {
+        std::string path(argv[1]);
+        std::ifstream is(path);
+        if (!is)
+        {
+            std::cout << "failed to load file " << path << '\n';
+            return 0;
+        }
+        while (!is.eof())
+        {
+            std::string input;
+            std::getline(is, input);
+            std::cout << "eval> " << input << '\n';
+            process(input, context, record);
+        }
+        is.close();
+    }
+
     while (true)
     {
         std::cout << "eval> ";
         std::string input;
         std::getline(std::cin, input);
-        if (input.empty()) continue;
-        if (input[0] == '!')
-        {
-            auto cmd = input.substr(1);
-            auto ite = commandTable.find(cmd);
-            if (ite != commandTable.end())
-                (ite->second)(context);
-            else
-                std::cout << "unknown command\n";
-        }
-        else
-        {
-            try
-            {
-                auto ret = context.exec(input);
-                if (ret.first == evaluator::ExprType::EXPR)
-                    std::cout << ret.second << '\n';
-            }
-            catch (const std::exception& e)
-            {
-                std::cerr << e.what() << std::endl;
-            }
-        }
+        process(input, context, record);
     }
     return 0;
 }

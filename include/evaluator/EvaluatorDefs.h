@@ -9,7 +9,7 @@ using operand_t = double;
 constexpr operand_t operand_zero = 0;
 constexpr operand_t operand_one = 1;
 
-constexpr unsigned int maxRecursionDepth = 128;
+constexpr unsigned int maxRecursionDepth = 256;
 
 class EvalException : public std::runtime_error
 {

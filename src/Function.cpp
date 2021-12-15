@@ -18,7 +18,7 @@ void Function::setArguments(const TokenList& args)
 
 operand_t Function::eval(Context& context, TokenList& tkl,
                          const TokenList::iterator& beg,
-                         const TokenList::iterator& end)
+                         const TokenList::iterator& end, unsigned int depth)
 {
     TokenList args;
     args.reserve(end - beg - 2);
@@ -57,7 +57,8 @@ operand_t Function::eval(Context& context, TokenList& tkl,
                 }
             }
             else
-                args.push_back(Token(context.evalExpr(tkl, start, ite)));
+                args.push_back(
+                    Token(context.evalExpr(tkl, start, ite, depth + 1)));
             start = ite + 1;
         }
     }
@@ -65,6 +66,6 @@ operand_t Function::eval(Context& context, TokenList& tkl,
     if (type == FuncType::ORDINARY) return definition(args, context);
     setArguments(args);
     auto cpy = tkList;
-    return context.evalExpr(cpy, cpy.begin(), cpy.end());
+    return context.evalExpr(cpy, cpy.begin(), cpy.end(), depth + 1);
 }
 }  // namespace evaluator

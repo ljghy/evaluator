@@ -3,4 +3,6 @@ f(x, s) = e ^ (-x) * x ^ (s - 1)
 step = 1e-3
 Gamma(s) = SUM(f(x, s), x, 0, 10, step) * step
 Gamma(1.5) 
-!exit
+
+Normal(x, mu, sigma) = 1 / ((2 * pi) ^ 0.5 * sigma) * e ^ (-(x - mu) ^ 2 / ( 2 * sigma ^ 2))
+StdNormal(x) = Normal(x, 0, 1)

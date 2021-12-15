@@ -43,7 +43,7 @@ class Function
 
     operand_t eval(Context& context, TokenList& tkl,
                    const TokenList::iterator& beg,
-                   const TokenList::iterator& end);
+                   const TokenList::iterator& end, unsigned int depth);
 };
 }  // namespace evaluator
 

@@ -47,46 +47,27 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
     }
     if (beg->type == TokenType::SUB)  // "-x", "-(1)", "-(x+1)+3"
     {
+        int inParen = 0;
         auto next = beg + 1;
-        switch (next->type)
+        auto ite = next;
+        while (ite != end)
         {
-            case TokenType::OPERAND:
-                *next = Token(-next->getOperand());
-                return evalExpr(tkl, next, end, depth + 1);
-            case TokenType::SYMBOL:
+            if (ite->type == TokenType::LPAREN) ++inParen;
+            if (ite->type == TokenType::RPAREN) --inParen;
+            if (!inParen &&
+                (ite->type == TokenType::ADD || ite->type == TokenType::SUB))
             {
-                if (isVar(next, end))
-                {
-                    auto ite = varTable.find(next->getSymbol());
-                    if (ite == varTable.end())
-                        throw EvalException("undefined symbol");
-                    *next = Token(-ite->second);
-                    return evalExpr(tkl, next, end, depth + 1);
-                }
-                else
-                {
-                    auto ite = funcTable.find(next->getSymbol());
-                    if (ite == funcTable.end())
-                        throw EvalException("undefined symbol");
-                    auto rParenIte = findParen(tkl, next + 1, end);
-                    if (rParenIte == end)
-                        throw EvalException("parantheses mismatched");
-                    *rParenIte = Token(
-                        -ite->second.eval(*this, tkl, next, rParenIte + 1));
-                    return evalExpr(tkl, rParenIte, end, depth + 1);
-                }
+                --ite;
+                break;
             }
-            case TokenType::LPAREN:
-            {
-                auto ite = findParen(tkl, next, end);
-                if (ite == end) throw EvalException("parentheses mismatched");
-                if (ite + 1 == end) return -evalExpr(tkl, next + 1, ite, depth + 1);
-                *ite = Token(-evalExpr(tkl, next + 1, ite, depth + 1));
-                return evalExpr(tkl, ite, end, depth + 1);
-            }
-            default:
-                throw EvalException("invalid expression");
+            ++ite;
         }
+        if (inParen && ite == end)
+            throw EvalException("parantheses mismatched");
+        if (ite == end) --ite;
+
+        *ite = Token(-evalExpr(tkl, next, ite + 1, depth + 1));
+        return evalExpr(tkl, ite, end, depth + 1);
     }
     if (beg->isSymbol())  // variable or function
     {
@@ -104,9 +85,9 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
             auto rParenIte = findParen(tkl, beg + 1, end);
             if (rParenIte == end) throw EvalException("parantheses mismatched");
             if (rParenIte == end - 1)
-                return ite->second.eval(*this, tkl, beg, end);
-            *rParenIte =
-                Token(ite->second.eval(*this, tkl, beg, rParenIte + 1));
+                return ite->second.eval(*this, tkl, beg, end, depth + 1);
+            *rParenIte = Token(
+                ite->second.eval(*this, tkl, beg, rParenIte + 1, depth + 1));
             return evalExpr(tkl, rParenIte, end, depth + 1);
         }
     }
@@ -148,7 +129,8 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
                    evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
         case TokenType::DIV:
         {
-            auto denominator = evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+            auto denominator =
+                evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
             if (denominator == operand_zero)
                 throw EvalException("division by zero");
             return evalExpr(tkl, beg, mainOperatorIte, depth + 1) / denominator;
@@ -187,6 +169,8 @@ bool Context::DefFunc(const TokenList& tkl)
     while (ite != rParenIte)
     {
         if (!ite->isSymbol()) return false;
+        if (parameterMap.find(ite->getSymbol()) != parameterMap.end())
+            throw EvalException("repeated parameter name");
         parameterMap[ite->getSymbol()] = idx;
         ++idx;
         ++ite;
