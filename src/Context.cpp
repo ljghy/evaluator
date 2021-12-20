@@ -24,8 +24,9 @@ std::pair<ExprType, operand_t> Context::exec(const std::string& input)
 operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
                             const TokenList::iterator& end, unsigned int depth)
 {
-    if (depth > maxRecursionDepth) throw EvalException("stack overflow");
-    if (beg == end) throw EvalException("invalid expression");
+    EVAL_THROW(depth > maxRecursionDepth, "stack overflow");
+    EVAL_THROW(beg == end, "invalid expression");
+
     if (beg + 1 == end)  // "1", "x"
     {
         if (beg->isOperand()) return beg->getOperand();
@@ -33,14 +34,14 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
         {
             auto vIte = varTable.find(beg->getSymbol());
             if (vIte != varTable.end()) return vIte->second;
-            throw EvalException("undefined symbol");
+            EVAL_THROW(1, "undefined symbol");
         }
-        throw EvalException("invalid expression");
+        EVAL_THROW(1, "invalid expression");
     }
     if (beg->type == TokenType::LPAREN)  // "(1+2)", "(1+2)*3"
     {
         auto ite = findParen(tkl, beg, end);
-        if (ite == end) throw EvalException("parentheses mismatched");
+        EVAL_THROW(ite == end, "parentheses mismatched");
         if (ite + 1 == end) return evalExpr(tkl, beg + 1, ite, depth + 1);
         *ite = Token(evalExpr(tkl, beg + 1, ite, depth + 1));
         return evalExpr(tkl, ite, end, depth + 1);
@@ -48,8 +49,7 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
     if (beg->type == TokenType::SUB)  // "-x", "-(1)", "-(x+1)+3"
     {
         int inParen = 0;
-        auto next = beg + 1;
-        auto ite = next;
+        auto ite = beg + 1;
         while (ite != end)
         {
             if (ite->type == TokenType::LPAREN) ++inParen;
@@ -62,11 +62,10 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
             }
             ++ite;
         }
-        if (inParen && ite == end)
-            throw EvalException("parantheses mismatched");
+        EVAL_THROW(inParen && ite == end, "parantheses mismatched");
         if (ite == end) --ite;
 
-        *ite = Token(-evalExpr(tkl, next, ite + 1, depth + 1));
+        *ite = Token(-evalExpr(tkl, beg + 1, ite + 1, depth + 1));
         return evalExpr(tkl, ite, end, depth + 1);
     }
     if (beg->isSymbol())  // variable or function
@@ -74,16 +73,16 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
         if (isVar(beg, end))
         {
             auto ite = varTable.find(beg->getSymbol());
-            if (ite == varTable.end()) throw EvalException("undefined symbol");
+            EVAL_THROW(ite == varTable.end(), "undefined symbol");
             *beg = Token(ite->second);
             return evalExpr(tkl, beg, end, depth + 1);
         }
         else
         {
             auto ite = funcTable.find(beg->getSymbol());
-            if (ite == funcTable.end()) throw EvalException("undefined symbol");
+            EVAL_THROW(ite == funcTable.end(), "undefined symbol");
             auto rParenIte = findParen(tkl, beg + 1, end);
-            if (rParenIte == end) throw EvalException("parantheses mismatched");
+            EVAL_THROW(rParenIte == end, "parantheses mismatched");
             if (rParenIte == end - 1)
                 return ite->second.eval(*this, tkl, beg, end, depth + 1);
             *rParenIte = Token(
@@ -92,7 +91,7 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
         }
     }
 
-    if (!beg->isOperand()) throw EvalException("invalid expression");
+    EVAL_THROW(!beg->isOperand(), "invalid expression");
 
     int minPre = 4;
     TokenList::iterator mainOperatorIte;
@@ -101,7 +100,7 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
         if (ite->type == TokenType::LPAREN)
         {
             ite = findParen(tkl, ite, end);
-            if (ite == end) throw EvalException("parentheses mismatched");
+            EVAL_THROW(ite == end, "parentheses mismatched");
             continue;
         }
         if (isOperator(ite->type) && !isNeg(beg, ite))
@@ -115,7 +114,7 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
         }
     }
 
-    if (minPre == 4) throw EvalException("invalid expression");
+    EVAL_THROW(minPre == 4, "invalid expression");
     switch (mainOperatorIte->type)
     {
         case TokenType::ADD:
@@ -125,24 +124,26 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
             return evalExpr(tkl, beg, mainOperatorIte, depth + 1) -
                    evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
         case TokenType::MUL:
-            return evalExpr(tkl, beg, mainOperatorIte, depth + 1) *
-                   evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+        {
+            auto l = evalExpr(tkl, beg, mainOperatorIte, depth + 1);
+            if (l == operand_zero) return operand_zero;
+            return l * evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+        }
         case TokenType::DIV:
         {
             auto denominator =
                 evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
-            if (denominator == operand_zero)
-                throw EvalException("division by zero");
+            EVAL_THROW(denominator == operand_zero, "division by zero");
             return evalExpr(tkl, beg, mainOperatorIte, depth + 1) / denominator;
         }
         case TokenType::POW:
             return std::pow(evalExpr(tkl, beg, mainOperatorIte, depth + 1),
                             evalExpr(tkl, mainOperatorIte + 1, end, depth + 1));
         default:
-            throw EvalException("unsupported expression");
+            EVAL_THROW(1, "unsupported expression");
     }
 
-    throw EvalException("unsupported expression");
+    EVAL_THROW(1, "unsupported expression");
 }
 
 bool Context::DefFunc(const TokenList& tkl)
@@ -169,8 +170,8 @@ bool Context::DefFunc(const TokenList& tkl)
     while (ite != rParenIte)
     {
         if (!ite->isSymbol()) return false;
-        if (parameterMap.find(ite->getSymbol()) != parameterMap.end())
-            throw EvalException("repeated parameter name");
+        EVAL_THROW(parameterMap.find(ite->getSymbol()) != parameterMap.end(),
+                   "repeated parameter name");
         parameterMap[ite->getSymbol()] = idx;
         ++idx;
         ++ite;
@@ -200,6 +201,37 @@ void Context::importMath()
 {
     varTable["pi"] = 3.1415926535898;
     varTable["e"] = 2.718281828459;
+
+    funcTable["eq"] =
+        Function(FuncType::ORDINARY,
+                 [](TokenList& tkl, Context&) -> operand_t
+                 { return tkl[0].getOperand() == tkl[1].getOperand(); });
+
+    funcTable["neq"] =
+        Function(FuncType::ORDINARY,
+
+                 [](TokenList& tkl, Context&) -> operand_t
+                 { return tkl[0].getOperand() != tkl[1].getOperand(); });
+
+    funcTable["leq"] =
+        Function(FuncType::ORDINARY,
+                 [](TokenList& tkl, Context&) -> operand_t
+                 { return tkl[0].getOperand() <= tkl[1].getOperand(); });
+
+    funcTable["lt"] =
+        Function(FuncType::ORDINARY,
+                 [](TokenList& tkl, Context&) -> operand_t
+                 { return tkl[0].getOperand() < tkl[1].getOperand(); });
+
+    funcTable["geq"] =
+        Function(FuncType::ORDINARY,
+                 [](TokenList& tkl, Context&) -> operand_t
+                 { return tkl[0].getOperand() >= tkl[1].getOperand(); });
+
+    funcTable["gt"] =
+        Function(FuncType::ORDINARY,
+                 [](TokenList& tkl, Context&) -> operand_t
+                 { return tkl[0].getOperand() > tkl[1].getOperand(); });
 
     funcTable["ln"] = Function(FuncType::ORDINARY,
                                [](TokenList& tkl, Context&) -> operand_t
@@ -274,8 +306,8 @@ void Context::importMath()
             dummyVar = "#" + dummyVar;
             ++ite;
 
-            if (ite->type != TokenType::COMMA)
-                throw EvalException("wrong number of arguments");
+            EVAL_THROW(ite->type != TokenType::COMMA,
+                       "wrong number of arguments");
             ++ite;
 
             TokenList begExpr;
@@ -329,20 +361,22 @@ void Context::importMath()
                 step = beg > end ? -operand_one : operand_one;
             operand_t s = operand_zero;
 
-            if ((end - beg) * step < operand_zero)
-                throw EvalException("infinite loop");
+            EVAL_THROW((end - beg) * step < operand_zero, "infinite loop");
 
+            auto dummyVarIte =
+                context.varTable.insert(std::make_pair(dummyVar, operand_zero))
+                    .first;
             if (beg < end)
                 for (operand_t x = beg; x < end; x += step)
                 {
-                    context.varTable[dummyVar] = x;
+                    dummyVarIte->second = x;
                     auto cpy = exprTokens;
                     s += context.evalExpr(cpy, cpy.begin(), cpy.end());
                 }
             else
                 for (operand_t x = beg; x > end; x += step)
                 {
-                    context.varTable[dummyVar] = x;
+                    dummyVarIte->second = x;
                     auto cpy = exprTokens;
                     s += context.evalExpr(cpy, cpy.begin(), cpy.end());
                 }
@@ -378,8 +412,8 @@ void Context::importMath()
             dummyVar = "#" + dummyVar;
             ++ite;
 
-            if (ite->type != TokenType::COMMA)
-                throw EvalException("wrong number of arguments");
+            EVAL_THROW(ite->type != TokenType::COMMA,
+                       "wrong number of arguments");
             ++ite;
 
             TokenList begExpr;
@@ -433,8 +467,7 @@ void Context::importMath()
                 step = beg > end ? -operand_one : operand_one;
             operand_t s = operand_one;
 
-            if ((end - beg) * step < operand_zero)
-                throw EvalException("infinite loop");
+            EVAL_THROW((end - beg) * step < operand_zero, "infinite loop");
 
             if (beg < end)
                 for (operand_t x = beg; x < end; x += step)

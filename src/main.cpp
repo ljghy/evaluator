@@ -6,13 +6,13 @@ std::unordered_map<std::string, std::function<void(evaluator::Context&)>>
     commandTable{
         {"exit", [](evaluator::Context&) { exit(0); }},
         {"math", [](evaluator::Context& context) { context.importMath(); }},
-        {"view",
+        {"list",
          [](evaluator::Context& context)
          {
-             std::cout << "Variables:\n";
+             std::cout << " - Variables:\n";
              for (const auto& p : context.varTable)
                  std::cout << '\t' << p.first << " = " << p.second << '\n';
-             std::cout << "Functions:\n";
+             std::cout << " - Functions:\n";
              std::cout << '\t';
              for (const auto& p : context.funcTable)
                  std::cout << p.first << ", ";
@@ -25,7 +25,6 @@ void process(const std::string& input, evaluator::Context& context,
              std::vector<std::string>& record)
 {
     if (input.empty()) return;
-
     if (input[0] == '!')
     {
         auto cmd = input.substr(1);
@@ -62,7 +61,7 @@ void process(const std::string& input, evaluator::Context& context,
             record.push_back(input);
             auto ret = context.exec(input);
             if (ret.first == evaluator::ExprType::EXPR)
-                std::cout << ret.second << '\n';
+                std::cout << " = " << ret.second << '\n';
         }
         catch (const std::exception& e)
         {

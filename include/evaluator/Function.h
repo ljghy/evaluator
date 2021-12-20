@@ -28,16 +28,11 @@ class Function
 
     Function() = default;
 
-    Function(FuncType t, decltype(definition) def) : type(t), definition(def) {}
+    Function(FuncType t, decltype(definition) def);
 
     Function(const std::string& _name, size_t n,
              const TokenList::const_iterator& beg,
-             const TokenList::const_iterator& end)
-        : name(_name), type(FuncType::CUSTOM)
-    {
-        parameterTable.resize(n);
-        for (auto ite = beg; ite != end; ++ite) tkList.push_back(*ite);
-    }
+             const TokenList::const_iterator& end);
 
     void setArguments(const TokenList& args);
 

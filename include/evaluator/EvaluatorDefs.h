@@ -16,6 +16,16 @@ class EvalException : public std::runtime_error
    public:
     EvalException(const char* _what) : std::runtime_error(_what) {}
 };
+
+#ifndef EVAL_NO_THROW
+#define EVAL_THROW(cond, msg)               \
+    do                                      \
+    {                                       \
+        if (cond) throw EvalException(msg); \
+    } while (0)
+#else
+#define EVAL_THROW(cond, msg)
+#endif
 }  // namespace evaluator
 
 #endif

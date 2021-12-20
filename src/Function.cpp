@@ -3,10 +3,24 @@
 #include "evaluator/Context.h"
 namespace evaluator
 {
+Function::Function(FuncType t, decltype(definition) def)
+    : type(t), definition(def)
+{
+}
+
+Function::Function(const std::string& _name, size_t n,
+                   const TokenList::const_iterator& beg,
+                   const TokenList::const_iterator& end)
+    : name(_name), type(FuncType::CUSTOM)
+{
+    parameterTable.resize(n);
+    for (auto ite = beg; ite != end; ++ite) tkList.push_back(*ite);
+}
+
 void Function::setArguments(const TokenList& args)
 {
-    if (type == FuncType::CUSTOM && args.size() != parameterTable.size())
-        throw EvalException("wrong number of arguments");
+    EVAL_THROW(type == FuncType::CUSTOM && args.size() != parameterTable.size(),
+               "wrong number of arguments");
     for (size_t i = 0; i < args.size(); ++i)
     {
         for (auto& idx : parameterTable[i])
@@ -53,7 +67,7 @@ operand_t Function::eval(Context& context, TokenList& tkl,
                     if (fIte != context.funcTable.end())
                         args.push_back(Token(symbol));
                     else
-                        throw EvalException("undefined symbol");
+                        EVAL_THROW(1, "undefined symbol");
                 }
             }
             else

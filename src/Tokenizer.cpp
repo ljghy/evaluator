@@ -1,6 +1,10 @@
 #include "evaluator/Tokenizer.h"
 namespace evaluator
 {
+std::function<bool(std::string::const_iterator&,
+                   const std::string::const_iterator&, operand_t&)>
+    TokenList::parseOperand = TokenList::parseDecimal;
+
 std::string Token::toString() const
 {
     switch (type)
@@ -34,19 +38,12 @@ std::string Token::toString() const
 
 TokenList::TokenList(const std::string& buffer)
 {
-    if (typeid(operand_t) == typeid(int))
-        parseOperand = parseInt;
-    else if (typeid(operand_t) == typeid(float) ||
-             typeid(operand_t) == typeid(double))
-        parseOperand = parseDecimal;
-    else
-        throw EvalException("operand parser undefined");
     auto ite = buffer.begin(), end_ite = buffer.end();
     parseSpace(ite, end_ite);
     while (ite != end_ite)
     {
         auto tk = parse(ite, end_ite);
-        if (tk.type == TokenType::NONE) throw EvalException("parse failed");
+        EVAL_THROW(tk.type == TokenType::NONE, "parse failed");
         push_back(tk);
         parseSpace(ite, end_ite);
     }
@@ -56,21 +53,11 @@ Token TokenList::parse(std::string::const_iterator& ite,
                        const std::string::const_iterator& end)
 {
     operand_t opnd;
-    if (parseOperand(ite, end, opnd))
-    {
-        return Token(opnd);
-    }
+    if (parseOperand(ite, end, opnd)) return Token(opnd);
     TokenType ty;
-    if (parseOperator(ite, end, ty))
-    {
-        return Token(ty);
-    }
-
+    if (parseOperator(ite, end, ty)) return Token(ty);
     std::string symbol;
-    if (parseSymbol(ite, end, symbol))
-    {
-        return Token(symbol);
-    }
+    if (parseSymbol(ite, end, symbol)) return Token(symbol);
     return Token();
 }
 void TokenList::parseSpace(std::string::const_iterator& ite,
@@ -91,7 +78,7 @@ bool TokenList::parseInt(std::string::const_iterator& ite,
         ++ite;
     }
     ss >> opnd;
-    if (ss.fail()) throw EvalException("operand overflow");
+    EVAL_THROW(ss.fail(), "operand overflow");
     return true;
 }
 bool TokenList::parseDecimal(std::string::const_iterator& ite,
@@ -100,6 +87,7 @@ bool TokenList::parseDecimal(std::string::const_iterator& ite,
 {
     if (ite == end) return false;
     if (!isDigit(*ite)) return false;
+    auto cpy = ite;
     std::stringstream ss;
     if (isDigitNonZero(*ite))
     {
@@ -134,7 +122,11 @@ bool TokenList::parseDecimal(std::string::const_iterator& ite,
             ss << *ite;
             ++ite;
         }
-        if (!isDigit(*ite)) return false;
+        if (!isDigit(*ite))
+        {
+            ite = cpy;
+            return false;
+        }
         while (isDigit(*ite))
         {
             ss << *ite;
@@ -142,7 +134,7 @@ bool TokenList::parseDecimal(std::string::const_iterator& ite,
         }
     }
     ss >> opnd;
-    if (ss.fail()) throw EvalException("operand overflow");
+    EVAL_THROW(ss.fail(), "operand overflow");
     return true;
 }
 
@@ -206,16 +198,15 @@ TokenList::iterator findParen(const TokenList& tkl,
                               const TokenList::iterator& beg,
                               const TokenList::iterator& end)
 {
-    size_t parenCount = 0;
+    int parenCount = 0;
     auto ite = beg;
     for (; ite != end; ++ite)
     {
         if (ite->type == TokenType::LPAREN)
         {
             ++parenCount;
-            continue;
         }
-        if (ite->type == TokenType::RPAREN)
+        else if (ite->type == TokenType::RPAREN)
         {
             --parenCount;
             if (parenCount == 0) break;

@@ -6,3 +6,5 @@ Gamma(1.5)
 
 Normal(x, mu, sigma) = 1 / ((2 * pi) ^ 0.5 * sigma) * e ^ (-(x - mu) ^ 2 / ( 2 * sigma ^ 2))
 StdNormal(x) = Normal(x, 0, 1)
+
+Ack(m, n) = eq(m, 0) * (n + 1) + eq(n, 0) * Ack(m - 1, 1) + neq(m * n, 0) * Ack(m - 1, Ack(m, n - 1))

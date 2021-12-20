@@ -60,11 +60,11 @@ struct Token
     {
         assert(_t != TokenType::OPERAND && _t != TokenType::SYMBOL);
     }
-    explicit Token(const operand_t& _v) : type(TokenType::OPERAND)
+    Token(const operand_t& _v) : type(TokenType::OPERAND)
     {
         value.emplace<1>(_v);
     }
-    explicit Token(const std::string& _v) : type(TokenType::SYMBOL)
+    Token(const std::string& _v) : type(TokenType::SYMBOL)
     {
         value.emplace<2>(_v);
     }
@@ -74,15 +74,17 @@ struct Token
 
     inline std::string getSymbol() const
     {
-        if (type != TokenType::SYMBOL)
-            throw EvalException("unexpected token type");
+#ifdef EVAL_DO_TYPE_CHECK
+        EVAL_THROW(type != TokenType::SYMBOL, "unexpected token type");
+#endif
         return std::get<2>(value);
     }
 
     inline operand_t getOperand() const
     {
-        if (type != TokenType::OPERAND)
-            throw EvalException("unexpected token type");
+#ifdef EVAL_DO_TYPE_CHECK
+        EVAL_THROW(type != TokenType::OPERAND, "unexpected token type");
+#endif
         return std::get<1>(value);
     }
 
@@ -93,8 +95,8 @@ struct Token
 class TokenList : public std::vector<Token>
 {
    protected:
-    std::function<bool(std::string::const_iterator&,
-                       const std::string::const_iterator&, operand_t&)>
+    static std::function<bool(std::string::const_iterator&,
+                              const std::string::const_iterator&, operand_t&)>
         parseOperand;
 
     static inline bool isDigit(char c) { return '0' <= c && c <= '9'; }
