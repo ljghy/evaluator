@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
 {
     evaluator::Context context;
     std::vector<std::string> record;
-
+    std::cout << std::fixed;
     if (argc == 2)
     {
         std::string path(argv[1]);

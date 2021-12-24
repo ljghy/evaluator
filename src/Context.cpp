@@ -40,11 +40,11 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
     }
     if (beg->type == TokenType::LPAREN)  // "(1+2)", "(1+2)*3"
     {
-        auto ite = findParen(tkl, beg, end);
-        EVAL_THROW(ite == end, "parentheses mismatched");
-        if (ite + 1 == end) return evalExpr(tkl, beg + 1, ite, depth + 1);
-        *ite = Token(evalExpr(tkl, beg + 1, ite, depth + 1));
-        return evalExpr(tkl, ite, end, depth + 1);
+        auto pIte = findParen(tkl, beg, end);
+        EVAL_THROW(pIte == end, "parentheses mismatched");
+        if (pIte + 1 == end) return evalExpr(tkl, beg + 1, pIte, depth + 1);
+        *pIte = Token(evalExpr(tkl, beg + 1, pIte, depth + 1));
+        return evalExpr(tkl, pIte, end, depth + 1);
     }
     if (beg->type == TokenType::SUB)  // "-x", "-(1)", "-(x+1)+3"
     {
@@ -72,21 +72,21 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
     {
         if (isVar(beg, end))
         {
-            auto ite = varTable.find(beg->getSymbol());
-            EVAL_THROW(ite == varTable.end(), "undefined symbol");
-            *beg = Token(ite->second);
+            auto vIte = varTable.find(beg->getSymbol());
+            EVAL_THROW(vIte == varTable.end(), "undefined symbol");
+            *beg = Token(vIte->second);
             return evalExpr(tkl, beg, end, depth + 1);
         }
         else
         {
-            auto ite = funcTable.find(beg->getSymbol());
-            EVAL_THROW(ite == funcTable.end(), "undefined symbol");
+            auto fIte = funcTable.find(beg->getSymbol());
+            EVAL_THROW(fIte == funcTable.end(), "undefined symbol");
             auto rParenIte = findParen(tkl, beg + 1, end);
             EVAL_THROW(rParenIte == end, "parantheses mismatched");
             if (rParenIte == end - 1)
-                return ite->second.eval(*this, tkl, beg, end, depth + 1);
+                return fIte->second.eval(*this, tkl, beg, end, depth + 1);
             *rParenIte = Token(
-                ite->second.eval(*this, tkl, beg, rParenIte + 1, depth + 1));
+                fIte->second.eval(*this, tkl, beg, rParenIte + 1, depth + 1));
             return evalExpr(tkl, rParenIte, end, depth + 1);
         }
     }
@@ -199,8 +199,8 @@ bool Context::DefFunc(const TokenList& tkl)
 
 void Context::importMath()
 {
-    varTable["pi"] = 3.1415926535898;
-    varTable["e"] = 2.718281828459;
+    varTable["pi"] = 3.14159265358979323846264338328;
+    varTable["e"] = 2.71828182845904523536028747135;
 
     funcTable["eq"] =
         Function(FuncType::ORDINARY,
@@ -258,6 +258,9 @@ void Context::importMath()
     funcTable["abs"] = Function(FuncType::ORDINARY,
                                 [](TokenList& tkl, Context&) -> operand_t
                                 { return abs(tkl[0].getOperand()); });
+    funcTable["exp"] = Function(FuncType::ORDINARY,
+                                [](TokenList& tkl, Context&) -> operand_t
+                                { return exp(tkl[0].getOperand()); });
 
     funcTable["max"] = Function(FuncType::ORDINARY,
                                 [](TokenList& tkl, Context&) -> operand_t

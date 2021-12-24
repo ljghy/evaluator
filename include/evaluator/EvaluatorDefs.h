@@ -5,7 +5,7 @@
 
 namespace evaluator
 {
-using operand_t = double;
+using operand_t = long double;
 constexpr operand_t operand_zero = 0;
 constexpr operand_t operand_one = 1;
 
@@ -16,6 +16,8 @@ class EvalException : public std::runtime_error
    public:
     EvalException(const char* _what) : std::runtime_error(_what) {}
 };
+
+#define EVAL_DO_TYPE_CHECK
 
 #ifndef EVAL_NO_THROW
 #define EVAL_THROW(cond, msg)               \

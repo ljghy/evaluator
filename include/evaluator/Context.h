@@ -6,7 +6,6 @@
 
 #include "evaluator/EvaluatorDefs.h"
 #include "evaluator/Function.h"
-
 namespace evaluator
 {
 enum class ExprType
@@ -31,9 +30,11 @@ class Context
     static inline bool isNeg(const TokenList::const_iterator& beg,
                              const TokenList::const_iterator& ite)
     {
-        return ite->type == TokenType::SUB &&
-               (ite == beg ||
-                ((!(ite - 1)->isOperand()) && (!(ite - 1)->isSymbol())));
+        if (ite->type != TokenType::SUB) return false;
+        if (ite == beg) return true;
+        auto pre = ite - 1;
+        return (!pre->isOperand()) && (!pre->isSymbol()) &&
+               (pre->type != TokenType::RPAREN);
     }
 
     operand_t evalExpr(TokenList& tkl, const TokenList::iterator& beg,

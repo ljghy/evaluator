@@ -195,6 +195,7 @@ bool TokenList::parseSymbol(std::string::const_iterator& ite,
     return true;
 }
 TokenList::iterator findParen(const TokenList& tkl,
+
                               const TokenList::iterator& beg,
                               const TokenList::iterator& end)
 {

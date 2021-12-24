@@ -23,7 +23,7 @@ enum class TokenType
     RPAREN,  // )
     COMMA,   // ,
     EQ,      // =
-    SYMBOL,
+    SYMBOL,  // variable or function name
 };
 
 inline bool isOperator(const TokenType& ty)
