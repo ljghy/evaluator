@@ -30,18 +30,16 @@ void Function::setArguments(const TokenList& args)
     }
 }
 
-operand_t Function::eval(Context& context, TokenList& tkl,
-                         const TokenList::iterator& beg,
-                         const TokenList::iterator& end, unsigned int depth)
+operand_t Function::eval(Context& context, const TokenList& tkl,
+                         const TokenList::const_iterator& beg,
+                         const TokenList::const_iterator& end,
+                         unsigned int depth)
 {
+    if (type == FuncType::HIGH_ORDER)
+        return definition(TokenList(beg + 2, end), context);
+
     TokenList args;
     args.reserve(end - beg - 2);
-
-    if (type == FuncType::HIGH_ORDER)
-    {
-        for (auto i = beg + 2; i != end; ++i) args.push_back(*i);
-        return definition(args, context);
-    }
 
     auto start = beg + 2;
     for (auto ite = beg + 2; ite != end; ++ite)
@@ -64,10 +62,9 @@ operand_t Function::eval(Context& context, TokenList& tkl,
                 else
                 {
                     auto fIte = context.funcTable.find(symbol);
-                    if (fIte != context.funcTable.end())
-                        args.push_back(Token(symbol));
-                    else
-                        EVAL_THROW(1, "undefined symbol");
+                    EVAL_THROW(fIte == context.funcTable.end(),
+                               "undefined symbol");
+                    args.push_back(Token(symbol));
                 }
             }
             else
@@ -79,7 +76,6 @@ operand_t Function::eval(Context& context, TokenList& tkl,
 
     if (type == FuncType::ORDINARY) return definition(args, context);
     setArguments(args);
-    auto cpy = tkList;
-    return context.evalExpr(cpy, cpy.begin(), cpy.end(), depth + 1);
+    return context.evalExpr(tkList, tkList.begin(), tkList.end(), depth + 1);
 }
 }  // namespace evaluator

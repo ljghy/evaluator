@@ -1,7 +1,6 @@
 #ifndef TOKENIZER_H_
 #define TOKENIZER_H_
 #include <cassert>
-#include <functional>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -25,13 +24,6 @@ enum class TokenType
     EQ,      // =
     SYMBOL,  // variable or function name
 };
-
-inline bool isOperator(const TokenType& ty)
-{
-    return (ty == TokenType::ADD || ty == TokenType::SUB ||
-            ty == TokenType::MUL || ty == TokenType::DIV ||
-            ty == TokenType::POW);
-}
 
 inline int getOperatorPrecedence(const TokenType& ty)
 {
@@ -72,6 +64,13 @@ struct Token
     inline bool isSymbol() const { return type == TokenType::SYMBOL; }
     inline bool isOperand() const { return type == TokenType::OPERAND; }
 
+    inline bool isOperator() const
+    {
+        return (type == TokenType::ADD || type == TokenType::SUB ||
+                type == TokenType::MUL || type == TokenType::DIV ||
+                type == TokenType::POW);
+    }
+
     inline std::string getSymbol() const
     {
 #ifdef EVAL_DO_TYPE_CHECK
@@ -95,9 +94,12 @@ struct Token
 class TokenList : public std::vector<Token>
 {
    protected:
-    static std::function<bool(std::string::const_iterator&,
-                              const std::string::const_iterator&, operand_t&)>
-        parseOperand;
+    template <typename T>
+    static bool parseOperand(std::string::const_iterator&,
+                             const std::string::const_iterator&, T&)
+    {
+        throw EvalException("operand parser undefined");
+    }
 
     static inline bool isDigit(char c) { return '0' <= c && c <= '9'; }
     static inline bool isDigitNonZero(char c) { return '0' < c && c <= '9'; }
@@ -119,11 +121,10 @@ class TokenList : public std::vector<Token>
     static void parseSpace(std::string::const_iterator& ite,
                            const std::string::const_iterator& end);
     static bool parseInt(std::string::const_iterator& ite,
-                         const std::string::const_iterator& end,
-                         operand_t& opnd);
+                         const std::string::const_iterator& end, int_t& opnd);
     static bool parseDecimal(std::string::const_iterator& ite,
                              const std::string::const_iterator& end,
-                             operand_t& opnd);
+                             decimal_t& opnd);
     static bool parseOperator(std::string::const_iterator& ite,
                               const std::string::const_iterator& end,
                               TokenType& ty);
@@ -133,13 +134,18 @@ class TokenList : public std::vector<Token>
 
    public:
     TokenList() = default;
+    TokenList(const TokenList::const_iterator& beg,
+              const TokenList::const_iterator& end)
+        : std::vector<Token>(beg, end)
+    {
+    }
     TokenList(const std::string& buffer);
     virtual ~TokenList() {}
 };
 
-TokenList::iterator findParen(const TokenList& tkl,
-                              const TokenList::iterator& beg,
-                              const TokenList::iterator& end);
+TokenList::const_iterator findParen(const TokenList& tkl,
+                                    const TokenList::const_iterator& beg,
+                                    const TokenList::const_iterator& end);
 
 }  // namespace evaluator
 

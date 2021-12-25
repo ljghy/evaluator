@@ -33,7 +33,7 @@ void process(const std::string& input, evaluator::Context& context,
             cmd.pop_back();
         if (cmd.substr(0, 4) == "save")
         {
-            std::string path = cmd.size() == 4 ? "./a.txt" : cmd.substr(5);
+            std::string path = cmd.substr(5);
             std::ofstream os(path);
             if (!os)
             {

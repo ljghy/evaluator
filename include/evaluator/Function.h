@@ -24,7 +24,7 @@ class Function
     std::vector<std::list<size_t>> parameterTable;
     TokenList tkList;
     FuncType type;
-    std::function<operand_t(TokenList&, Context&)> definition;
+    std::function<operand_t(const TokenList&, Context&)> definition;
 
     Function() = default;
 
@@ -36,9 +36,9 @@ class Function
 
     void setArguments(const TokenList& args);
 
-    operand_t eval(Context& context, TokenList& tkl,
-                   const TokenList::iterator& beg,
-                   const TokenList::iterator& end, unsigned int depth);
+    operand_t eval(Context& context, const TokenList& tkl,
+                   const TokenList::const_iterator& beg,
+                   const TokenList::const_iterator& end, unsigned int depth);
 };
 }  // namespace evaluator
 

@@ -5,7 +5,7 @@ namespace evaluator
 {
 std::pair<ExprType, operand_t> Context::exec(const std::string& input)
 {
-    auto tkList = TokenList(input);  // May be changed
+    auto tkList = TokenList(input);
     if (tkList.size() > 2 && tkList[0].isSymbol() &&
         tkList[1].type == TokenType::EQ)  // Assigning value to variable
     {
@@ -21,8 +21,10 @@ std::pair<ExprType, operand_t> Context::exec(const std::string& input)
             varTable["ANS"] = evalExpr(tkList, tkList.begin(), tkList.end())};
 }
 
-operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
-                            const TokenList::iterator& end, unsigned int depth)
+operand_t Context::evalExpr(const TokenList& tkl,
+                            const TokenList::const_iterator& beg,
+                            const TokenList::const_iterator& end,
+                            unsigned int depth)
 {
     EVAL_THROW(depth > maxRecursionDepth, "stack overflow");
     EVAL_THROW(beg == end, "invalid expression");
@@ -33,8 +35,8 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
         if (beg->isSymbol())
         {
             auto vIte = varTable.find(beg->getSymbol());
-            if (vIte != varTable.end()) return vIte->second;
-            EVAL_THROW(1, "undefined symbol");
+            EVAL_THROW(vIte == varTable.end(), "undefined symbol");
+            return vIte->second;
         }
         EVAL_THROW(1, "invalid expression");
     }
@@ -43,8 +45,6 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
         auto pIte = findParen(tkl, beg, end);
         EVAL_THROW(pIte == end, "parentheses mismatched");
         if (pIte + 1 == end) return evalExpr(tkl, beg + 1, pIte, depth + 1);
-        *pIte = Token(evalExpr(tkl, beg + 1, pIte, depth + 1));
-        return evalExpr(tkl, pIte, end, depth + 1);
     }
     if (beg->type == TokenType::SUB)  // "-x", "-(1)", "-(x+1)+3"
     {
@@ -63,21 +63,12 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
             ++ite;
         }
         EVAL_THROW(inParen && ite == end, "parantheses mismatched");
-        if (ite == end) --ite;
-
-        *ite = Token(-evalExpr(tkl, beg + 1, ite + 1, depth + 1));
-        return evalExpr(tkl, ite, end, depth + 1);
+        if (ite == end) return -evalExpr(tkl, beg + 1, end, depth + 1);
     }
-    if (beg->isSymbol())  // variable or function
+
+    if (beg->isSymbol())  // function
     {
-        if (isVar(beg, end))
-        {
-            auto vIte = varTable.find(beg->getSymbol());
-            EVAL_THROW(vIte == varTable.end(), "undefined symbol");
-            *beg = Token(vIte->second);
-            return evalExpr(tkl, beg, end, depth + 1);
-        }
-        else
+        if (!isVar(beg, end))
         {
             auto fIte = funcTable.find(beg->getSymbol());
             EVAL_THROW(fIte == funcTable.end(), "undefined symbol");
@@ -85,16 +76,11 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
             EVAL_THROW(rParenIte == end, "parantheses mismatched");
             if (rParenIte == end - 1)
                 return fIte->second.eval(*this, tkl, beg, end, depth + 1);
-            *rParenIte = Token(
-                fIte->second.eval(*this, tkl, beg, rParenIte + 1, depth + 1));
-            return evalExpr(tkl, rParenIte, end, depth + 1);
         }
     }
 
-    EVAL_THROW(!beg->isOperand(), "invalid expression");
-
     int minPre = 4;
-    TokenList::iterator mainOperatorIte;
+    TokenList::const_iterator mainOperatorIte;
     for (auto ite = beg; ite != end; ++ite)
     {
         if (ite->type == TokenType::LPAREN)
@@ -103,7 +89,7 @@ operand_t Context::evalExpr(TokenList& tkl, const TokenList::iterator& beg,
             EVAL_THROW(ite == end, "parentheses mismatched");
             continue;
         }
-        if (isOperator(ite->type) && !isNeg(beg, ite))
+        if (ite->isOperator() && !isNeg(beg, ite))
         {
             int pre = getOperatorPrecedence(ite->type);
             if (pre <= minPre)
@@ -204,66 +190,66 @@ void Context::importMath()
 
     funcTable["eq"] =
         Function(FuncType::ORDINARY,
-                 [](TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList& tkl, Context&) -> operand_t
                  { return tkl[0].getOperand() == tkl[1].getOperand(); });
 
     funcTable["neq"] =
         Function(FuncType::ORDINARY,
 
-                 [](TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList& tkl, Context&) -> operand_t
                  { return tkl[0].getOperand() != tkl[1].getOperand(); });
 
     funcTable["leq"] =
         Function(FuncType::ORDINARY,
-                 [](TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList& tkl, Context&) -> operand_t
                  { return tkl[0].getOperand() <= tkl[1].getOperand(); });
 
     funcTable["lt"] =
         Function(FuncType::ORDINARY,
-                 [](TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList& tkl, Context&) -> operand_t
                  { return tkl[0].getOperand() < tkl[1].getOperand(); });
 
     funcTable["geq"] =
         Function(FuncType::ORDINARY,
-                 [](TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList& tkl, Context&) -> operand_t
                  { return tkl[0].getOperand() >= tkl[1].getOperand(); });
 
     funcTable["gt"] =
         Function(FuncType::ORDINARY,
-                 [](TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList& tkl, Context&) -> operand_t
                  { return tkl[0].getOperand() > tkl[1].getOperand(); });
 
     funcTable["ln"] = Function(FuncType::ORDINARY,
-                               [](TokenList& tkl, Context&) -> operand_t
+                               [](const TokenList& tkl, Context&) -> operand_t
                                { return log(tkl[0].getOperand()); });
 
     funcTable["lg"] = Function(FuncType::ORDINARY,
-                               [](TokenList& tkl, Context&) -> operand_t
+                               [](const TokenList& tkl, Context&) -> operand_t
                                { return log10(tkl[0].getOperand()); });
 
     funcTable["log"] = Function(
         FuncType::ORDINARY,
-        [](TokenList& tkl, Context&) -> operand_t
+        [](const TokenList& tkl, Context&) -> operand_t
         { return log(tkl[1].getOperand()) / log(tkl[0].getOperand()); });
 
     funcTable["sin"] = Function(FuncType::ORDINARY,
-                                [](TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList& tkl, Context&) -> operand_t
                                 { return sin(tkl[0].getOperand()); });
     funcTable["cos"] = Function(FuncType::ORDINARY,
-                                [](TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList& tkl, Context&) -> operand_t
                                 { return cos(tkl[0].getOperand()); });
     funcTable["tan"] = Function(FuncType::ORDINARY,
-                                [](TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList& tkl, Context&) -> operand_t
                                 { return tan(tkl[0].getOperand()); });
     funcTable["abs"] = Function(FuncType::ORDINARY,
-                                [](TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList& tkl, Context&) -> operand_t
                                 { return abs(tkl[0].getOperand()); });
     funcTable["exp"] = Function(FuncType::ORDINARY,
-                                [](TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList& tkl, Context&) -> operand_t
                                 { return exp(tkl[0].getOperand()); });
 
     funcTable["max"] = Function(FuncType::ORDINARY,
-                                [](TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList& tkl, Context&) -> operand_t
                                 {
                                     operand_t m = tkl[0].getOperand();
                                     for (const auto& t : tkl)
@@ -272,7 +258,7 @@ void Context::importMath()
                                     return m;
                                 });
     funcTable["min"] = Function(FuncType::ORDINARY,
-                                [](TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList& tkl, Context&) -> operand_t
                                 {
                                     operand_t m = tkl[0].getOperand();
                                     for (const auto& t : tkl)
@@ -283,7 +269,7 @@ void Context::importMath()
 
     funcTable["SUM"] = Function(
         FuncType::HIGH_ORDER,
-        [](TokenList& tkl, Context& context) -> operand_t
+        [](const TokenList& tkl, Context& context) -> operand_t
         {
             size_t inParen = 0;
             TokenList exprTokens;
@@ -373,15 +359,15 @@ void Context::importMath()
                 for (operand_t x = beg; x < end; x += step)
                 {
                     dummyVarIte->second = x;
-                    auto cpy = exprTokens;
-                    s += context.evalExpr(cpy, cpy.begin(), cpy.end());
+                    s += context.evalExpr(exprTokens, exprTokens.begin(),
+                                          exprTokens.end());
                 }
             else
                 for (operand_t x = beg; x > end; x += step)
                 {
                     dummyVarIte->second = x;
-                    auto cpy = exprTokens;
-                    s += context.evalExpr(cpy, cpy.begin(), cpy.end());
+                    s += context.evalExpr(exprTokens, exprTokens.begin(),
+                                          exprTokens.end());
                 }
             context.varTable.erase(dummyVar);
             return s;
@@ -389,7 +375,7 @@ void Context::importMath()
 
     funcTable["MUL"] = Function(
         FuncType::HIGH_ORDER,
-        [](TokenList& tkl, Context& context) -> operand_t
+        [](const TokenList& tkl, Context& context) -> operand_t
         {
             size_t inParen = 0;
             TokenList exprTokens;
@@ -476,15 +462,15 @@ void Context::importMath()
                 for (operand_t x = beg; x < end; x += step)
                 {
                     context.varTable[dummyVar] = x;
-                    auto cpy = exprTokens;
-                    s *= context.evalExpr(cpy, cpy.begin(), cpy.end());
+                    s *= context.evalExpr(exprTokens, exprTokens.begin(),
+                                          exprTokens.end());
                 }
             else
                 for (operand_t x = beg; x > end; x += step)
                 {
                     context.varTable[dummyVar] = x;
-                    auto cpy = exprTokens;
-                    s *= context.evalExpr(cpy, cpy.begin(), cpy.end());
+                    s *= context.evalExpr(exprTokens, exprTokens.begin(),
+                                          exprTokens.end());
                 }
             context.varTable.erase(dummyVar);
             return s;

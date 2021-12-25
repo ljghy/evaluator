@@ -5,11 +5,13 @@
 
 namespace evaluator
 {
-using operand_t = long double;
+using int_t = int;
+using decimal_t = long double;
+using operand_t = decimal_t;
 constexpr operand_t operand_zero = 0;
 constexpr operand_t operand_one = 1;
 
-constexpr unsigned int maxRecursionDepth = 256;
+constexpr unsigned int maxRecursionDepth = 1024;
 
 class EvalException : public std::runtime_error
 {
