@@ -241,6 +241,30 @@ void Context::importMath()
     funcTable["tan"] = Function(FuncType::ORDINARY,
                                 [](const TokenList& tkl, Context&) -> operand_t
                                 { return tan(tkl[0].getOperand()); });
+
+    funcTable["asin"] = Function(FuncType::ORDINARY,
+                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 { return asin(tkl[0].getOperand()); });
+    funcTable["acos"] = Function(FuncType::ORDINARY,
+                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 { return acos(tkl[0].getOperand()); });
+    funcTable["atan"] = Function(FuncType::ORDINARY,
+                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 { return atan(tkl[0].getOperand()); });
+
+    funcTable["gamma"] =
+        Function(FuncType::ORDINARY,
+                 [](const TokenList& tkl, Context&) -> operand_t
+                 { return tgamma(tkl[0].getOperand()); });
+
+    funcTable["floor"] =
+        Function(FuncType::ORDINARY,
+                 [](const TokenList& tkl, Context&) -> operand_t
+                 { return floor(tkl[0].getOperand()); });
+    funcTable["ceil"] = Function(FuncType::ORDINARY,
+                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 { return ceil(tkl[0].getOperand()); });
+
     funcTable["abs"] = Function(FuncType::ORDINARY,
                                 [](const TokenList& tkl, Context&) -> operand_t
                                 { return abs(tkl[0].getOperand()); });
