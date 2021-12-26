@@ -39,7 +39,7 @@ TokenList::TokenList(const std::string& buffer)
     while (ite != end_ite)
     {
         auto tk = parse(ite, end_ite);
-        EVAL_THROW(tk.type == TokenType::NONE, "parse failed");
+        EVAL_THROW(tk.type == TokenType::NONE, EVAL_PARSE_FAILED);
         push_back(tk);
         parseSpace(ite, end_ite);
     }
@@ -89,7 +89,7 @@ bool TokenList::parseInt(std::string::const_iterator& ite,
         ++ite;
     }
     ss >> opnd;
-    EVAL_THROW(ss.fail(), "operand overflow");
+    EVAL_THROW(ss.fail(), EVAL_OPERAND_OVERFLOW);
     return true;
 }
 bool TokenList::parseDecimal(std::string::const_iterator& ite,
@@ -145,7 +145,7 @@ bool TokenList::parseDecimal(std::string::const_iterator& ite,
         }
     }
     ss >> opnd;
-    EVAL_THROW(ss.fail(), "operand overflow");
+    EVAL_THROW(ss.fail(), EVAL_OPERAND_OVERFLOW);
     return true;
 }
 
@@ -205,8 +205,7 @@ bool TokenList::parseSymbol(std::string::const_iterator& ite,
     }
     return true;
 }
-TokenList::const_iterator findParen(const TokenList& tkl,
-                                    const TokenList::const_iterator& beg,
+TokenList::const_iterator findParen(const TokenList::const_iterator& beg,
                                     const TokenList::const_iterator& end)
 {
     int parenCount = 0;

@@ -75,7 +75,7 @@ struct Token
     inline std::string getSymbol() const
     {
 #ifdef EVAL_DO_TYPE_CHECK
-        EVAL_THROW(type != TokenType::SYMBOL, "unexpected token type");
+        EVAL_THROW(type != TokenType::SYMBOL, EVAL_UNEXPECTED_TOKEN_TYPE);
 #endif
         return std::get<2>(value);
     }
@@ -83,7 +83,7 @@ struct Token
     inline operand_t getOperand() const
     {
 #ifdef EVAL_DO_TYPE_CHECK
-        EVAL_THROW(type != TokenType::OPERAND, "unexpected token type");
+        EVAL_THROW(type != TokenType::OPERAND, EVAL_UNEXPECTED_TOKEN_TYPE);
 #endif
         return std::get<1>(value);
     }
@@ -144,8 +144,7 @@ class TokenList : public std::vector<Token>
     virtual ~TokenList() {}
 };
 
-TokenList::const_iterator findParen(const TokenList& tkl,
-                                    const TokenList::const_iterator& beg,
+TokenList::const_iterator findParen(const TokenList::const_iterator& beg,
                                     const TokenList::const_iterator& end);
 
 }  // namespace evaluator

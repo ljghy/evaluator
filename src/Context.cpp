@@ -26,8 +26,8 @@ operand_t Context::evalExpr(const TokenList& tkl,
                             const TokenList::const_iterator& end,
                             unsigned int depth)
 {
-    EVAL_THROW(depth > maxRecursionDepth, "stack overflow");
-    EVAL_THROW(beg == end, "invalid expression");
+    EVAL_THROW(depth > maxRecursionDepth, EVAL_STACK_OVERFLOW);
+    EVAL_THROW(beg == end, EVAL_INVALID_EXPR);
 
     if (beg + 1 == end)  // "1", "x"
     {
@@ -35,10 +35,10 @@ operand_t Context::evalExpr(const TokenList& tkl,
         if (beg->isSymbol())
         {
             auto vIte = varTable.find(beg->getSymbol());
-            EVAL_THROW(vIte == varTable.end(), "undefined symbol");
+            EVAL_THROW(vIte == varTable.end(), EVAL_UNDEFINED_SYMBOL);
             return vIte->second;
         }
-        EVAL_THROW(1, "invalid expression");
+        EVAL_THROW(1, EVAL_INVALID_EXPR);
     }
 
     if (beg->isSub())  // "-x", "-(1)", "-(x+1)+3"
@@ -56,7 +56,7 @@ operand_t Context::evalExpr(const TokenList& tkl,
             }
             ++ite;
         }
-        EVAL_THROW(inParen && ite == end, "parantheses mismatched");
+        EVAL_THROW(inParen && ite == end, EVAL_PAREN_MISMATCH);
         if (ite == end) return -evalExpr(tkl, beg + 1, end, depth + 1);
     }
 
@@ -66,8 +66,8 @@ operand_t Context::evalExpr(const TokenList& tkl,
     {
         if (ite->isLParen())
         {
-            ite = findParen(tkl, ite, end);
-            EVAL_THROW(ite == end, "parentheses mismatched");
+            ite = findParen(ite, end);
+            EVAL_THROW(ite == end, EVAL_PAREN_MISMATCH);
             continue;
         }
         if (ite->isOperator() && !isNeg(beg, ite))
@@ -101,7 +101,7 @@ operand_t Context::evalExpr(const TokenList& tkl,
             {
                 auto denominator =
                     evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
-                EVAL_THROW(denominator == operand_zero, "division by zero");
+                EVAL_THROW(denominator == operand_zero, EVAL_DIV_BY_ZERO);
                 return evalExpr(tkl, beg, mainOperatorIte, depth + 1) /
                        denominator;
             }
@@ -110,18 +110,18 @@ operand_t Context::evalExpr(const TokenList& tkl,
                     evalExpr(tkl, beg, mainOperatorIte, depth + 1),
                     evalExpr(tkl, mainOperatorIte + 1, end, depth + 1));
             default:
-                EVAL_THROW(1, "unsupported expression");
+                EVAL_THROW(1, EVAL_INVALID_EXPR);
         }
     }
     if (beg->isLParen())  // "(1+2)", "(1+2)*3"
     {
-        EVAL_THROW(!(end - 1)->isRParen(), "parentheses mismatched");
+        EVAL_THROW(!(end - 1)->isRParen(), EVAL_PAREN_MISMATCH);
         return evalExpr(tkl, beg + 1, end - 1, depth + 1);
     }
 
     auto fIte = funcTable.find(beg->getSymbol());
-    EVAL_THROW(fIte == funcTable.end(), "undefined symbol");
-    EVAL_THROW(!(end - 1)->isRParen(), "parentheses mismatched");
+    EVAL_THROW(fIte == funcTable.end(), EVAL_UNDEFINED_SYMBOL);
+    EVAL_THROW(!(end - 1)->isRParen(), EVAL_PAREN_MISMATCH);
     return fIte->second.eval(*this, tkl, beg, end, depth + 1);
 }
 
@@ -129,49 +129,40 @@ bool Context::DefFunc(const TokenList& tkl)
 {
     if (tkl.size() < 6) return false;  // f(x)=x
     if ((!tkl[0].isSymbol()) || (!(tkl[1].isLParen()))) return false;
-    bool found = false;
+    bool foundEq = false;
     TokenList::const_iterator rParenIte;
     for (auto ite = tkl.begin() + 3; ite != tkl.end() - 1; ++ite)
-    {
         if (ite->isRParen() && (ite + 1)->isEq())
         {
-            found = true;
+            foundEq = true;
             rParenIte = ite;
             break;
         }
-    }
-    if (!found) return false;
-    auto ite = tkl.begin() + 2;
+    if (!foundEq) return false;
     std::unordered_map<std::string, int> parameterMap;
 
     size_t idx = 0;
-    while (ite != rParenIte)
+    for (auto ite = tkl.begin() + 2; ite != rParenIte; ++ite)
     {
         if (!ite->isSymbol()) return false;
         EVAL_THROW(parameterMap.find(ite->getSymbol()) != parameterMap.end(),
-                   "repeated parameter name");
-        parameterMap[ite->getSymbol()] = idx;
-        ++idx;
-        ++ite;
-        if (ite == rParenIte) break;
+                   EVAL_REPEATED_PARAMETER_NAME);
+        parameterMap[ite->getSymbol()] = idx++;
+        if (++ite == rParenIte) break;
         if (!ite->isComma()) return false;
-        ++ite;
     }
-    Function f(tkl.begin()->getSymbol(), parameterMap.size(), rParenIte + 2,
-               tkl.end());
-
+    Function f(rParenIte + 2, tkl.end());
+    f.parameterTable.resize(parameterMap.size());
     for (auto ite = f.tkList.begin(); ite != f.tkList.end(); ++ite)
     {
         if (ite->isSymbol())
         {
             auto i = parameterMap.find(ite->getSymbol());
             if (parameterMap.end() != i)
-            {
                 f.parameterTable[i->second].push_back(ite - f.tkList.begin());
-            }
         }
     }
-    funcTable[f.name] = f;
+    funcTable[tkl.begin()->getSymbol()] = f;
     return true;
 }
 
@@ -287,9 +278,8 @@ void Context::importMath()
         FuncType::HIGH_ORDER,
         [](const TokenList& tkl, Context& context) -> operand_t
         {
-            size_t inParen = 0;
-            TokenList exprTokens;
-            auto ite = tkl.begin();
+            int inParen = 0;
+            auto ite = tkl.begin(), exprIte = ite;
             for (; ite != tkl.end(); ++ite)
             {
                 if (ite->isLParen())
@@ -298,23 +288,18 @@ void Context::importMath()
                     --inParen;
                 else if (!inParen && ite->isComma())
                     break;
-                exprTokens.push_back(*ite);
             }
-            ++ite;
+            TokenList exprTokens(exprIte, ite);
 
-            std::string dummyVar = ite->getSymbol();
+            std::string dummyVar = (++ite)->getSymbol();
             for (auto& t : exprTokens)
-            {
                 if (t.isSymbol() && t.getSymbol() == dummyVar)
                     t = Token("#" + t.getSymbol());  // temp variable
-            }
             dummyVar = "#" + dummyVar;
-            ++ite;
 
-            EVAL_THROW(!ite->isComma(), "wrong number of arguments");
-            ++ite;
+            EVAL_THROW(!(++ite)->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
 
-            TokenList begExpr;
+            auto begIte = ++ite;
             for (; ite != tkl.end(); ++ite)
             {
                 if (ite->isLParen())
@@ -323,13 +308,10 @@ void Context::importMath()
                     --inParen;
                 else if (!inParen && ite->isComma())
                     break;
-                begExpr.push_back(*ite);
             }
-            operand_t beg =
-                context.evalExpr(begExpr, begExpr.begin(), begExpr.end());
-            ++ite;
+            operand_t beg = context.evalExpr(tkl, begIte, ite);
 
-            TokenList endExpr;
+            auto endIte = ++ite;
             for (; ite != tkl.end(); ++ite)
             {
                 if (ite->isLParen())
@@ -337,16 +319,13 @@ void Context::importMath()
                 else if (ite->isRParen())
                     --inParen;
                 if (ite->isRParen() || (!inParen && ite->isComma())) break;
-                endExpr.push_back(*ite);
             }
-            operand_t end =
-                context.evalExpr(endExpr, endExpr.begin(), endExpr.end());
+            operand_t end = context.evalExpr(tkl, endIte, ite);
 
             operand_t step;
-            TokenList stepExpr;
             if (ite->isComma())
             {
-                ++ite;
+                auto stepIte = ++ite;
                 for (; ite != tkl.end(); ++ite)
                 {
                     if (!inParen && ite->isRParen()) break;
@@ -354,16 +333,14 @@ void Context::importMath()
                         ++inParen;
                     else if (ite->isRParen())
                         --inParen;
-                    stepExpr.push_back(*ite);
                 }
-                step = context.evalExpr(stepExpr, stepExpr.begin(),
-                                        stepExpr.end());
+                step = context.evalExpr(tkl, stepIte, ite);
             }
             else
                 step = beg > end ? -operand_one : operand_one;
             operand_t s = operand_zero;
 
-            EVAL_THROW((end - beg) * step < operand_zero, "infinite loop");
+            EVAL_THROW((end - beg) * step < operand_zero, EVAL_INFINITE_LOOP);
 
             auto dummyVarIte =
                 context.varTable.insert(std::make_pair(dummyVar, operand_zero))
@@ -390,9 +367,8 @@ void Context::importMath()
         FuncType::HIGH_ORDER,
         [](const TokenList& tkl, Context& context) -> operand_t
         {
-            size_t inParen = 0;
-            TokenList exprTokens;
-            auto ite = tkl.begin();
+            int inParen = 0;
+            auto ite = tkl.begin(), exprIte = ite;
             for (; ite != tkl.end(); ++ite)
             {
                 if (ite->isLParen())
@@ -401,23 +377,18 @@ void Context::importMath()
                     --inParen;
                 else if (!inParen && ite->isComma())
                     break;
-                exprTokens.push_back(*ite);
             }
-            ++ite;
+            TokenList exprTokens(exprIte, ite);
 
-            std::string dummyVar = ite->getSymbol();
+            std::string dummyVar = (++ite)->getSymbol();
             for (auto& t : exprTokens)
-            {
                 if (t.isSymbol() && t.getSymbol() == dummyVar)
                     t = Token("#" + t.getSymbol());  // temp variable
-            }
             dummyVar = "#" + dummyVar;
-            ++ite;
 
-            EVAL_THROW(!ite->isComma(), "wrong number of arguments");
-            ++ite;
+            EVAL_THROW(!(++ite)->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
 
-            TokenList begExpr;
+            auto begIte = ++ite;
             for (; ite != tkl.end(); ++ite)
             {
                 if (ite->isLParen())
@@ -426,13 +397,10 @@ void Context::importMath()
                     --inParen;
                 else if (!inParen && ite->isComma())
                     break;
-                begExpr.push_back(*ite);
             }
-            operand_t beg =
-                context.evalExpr(begExpr, begExpr.begin(), begExpr.end());
-            ++ite;
+            operand_t beg = context.evalExpr(tkl, begIte, ite);
 
-            TokenList endExpr;
+            auto endIte = ++ite;
             for (; ite != tkl.end(); ++ite)
             {
                 if (ite->isLParen())
@@ -440,16 +408,13 @@ void Context::importMath()
                 else if (ite->isRParen())
                     --inParen;
                 if (ite->isRParen() || (!inParen && ite->isComma())) break;
-                endExpr.push_back(*ite);
             }
-            operand_t end =
-                context.evalExpr(endExpr, endExpr.begin(), endExpr.end());
+            operand_t end = context.evalExpr(tkl, endIte, ite);
 
             operand_t step;
-            TokenList stepExpr;
             if (ite->isComma())
             {
-                ++ite;
+                auto stepIte = ++ite;
                 for (; ite != tkl.end(); ++ite)
                 {
                     if (!inParen && ite->isRParen()) break;
@@ -457,28 +422,29 @@ void Context::importMath()
                         ++inParen;
                     else if (ite->isRParen())
                         --inParen;
-                    stepExpr.push_back(*ite);
                 }
-                step = context.evalExpr(stepExpr, stepExpr.begin(),
-                                        stepExpr.end());
+                step = context.evalExpr(tkl, stepIte, ite);
             }
             else
                 step = beg > end ? -operand_one : operand_one;
             operand_t s = operand_one;
 
-            EVAL_THROW((end - beg) * step < operand_zero, "infinite loop");
+            EVAL_THROW((end - beg) * step < operand_zero, EVAL_INFINITE_LOOP);
 
+            auto dummyVarIte =
+                context.varTable.insert(std::make_pair(dummyVar, operand_zero))
+                    .first;
             if (beg < end)
                 for (operand_t x = beg; x < end; x += step)
                 {
-                    context.varTable[dummyVar] = x;
+                    dummyVarIte->second = x;
                     s *= context.evalExpr(exprTokens, exprTokens.begin(),
                                           exprTokens.end());
                 }
             else
                 for (operand_t x = beg; x > end; x += step)
                 {
-                    context.varTable[dummyVar] = x;
+                    dummyVarIte->second = x;
                     s *= context.evalExpr(exprTokens, exprTokens.begin(),
                                           exprTokens.end());
                 }
