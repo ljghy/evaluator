@@ -1,6 +1,5 @@
 #ifndef TOKENIZER_H_
 #define TOKENIZER_H_
-#include <cassert>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -38,9 +37,8 @@ inline int getOperatorPrecedence(const TokenType& ty)
         case TokenType::POW:
             return 3;
         default:
-            assert(0);
+            return (0);
     }
-    return 0;
 }
 
 struct Token
@@ -48,10 +46,7 @@ struct Token
     TokenType type;
     std::variant<std::monostate, operand_t, std::string> value;
 
-    Token(const TokenType& _t = TokenType::NONE) : type(_t)
-    {
-        assert(_t != TokenType::OPERAND && _t != TokenType::SYMBOL);
-    }
+    Token(const TokenType& _t = TokenType::NONE) : type(_t) {}
     Token(const operand_t& _v) : type(TokenType::OPERAND)
     {
         value.emplace<1>(_v);
@@ -63,6 +58,12 @@ struct Token
 
     inline bool isSymbol() const { return type == TokenType::SYMBOL; }
     inline bool isOperand() const { return type == TokenType::OPERAND; }
+    inline bool isLParen() const { return type == TokenType::LPAREN; }
+    inline bool isRParen() const { return type == TokenType::RPAREN; }
+    inline bool isComma() const { return type == TokenType::COMMA; }
+    inline bool isAdd() const { return type == TokenType::ADD; }
+    inline bool isSub() const { return type == TokenType::SUB; }
+    inline bool isEq() const { return type == TokenType::EQ; }
 
     inline bool isOperator() const
     {

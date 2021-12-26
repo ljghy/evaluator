@@ -7,7 +7,7 @@ std::pair<ExprType, operand_t> Context::exec(const std::string& input)
 {
     auto tkList = TokenList(input);
     if (tkList.size() > 2 && tkList[0].isSymbol() &&
-        tkList[1].type == TokenType::EQ)  // Assigning value to variable
+        tkList[1].isEq())  // Assigning value to variable
     {
         varTable[tkList.begin()->getSymbol()] =
             evalExpr(tkList, tkList.begin() + 2, tkList.end());
@@ -40,22 +40,16 @@ operand_t Context::evalExpr(const TokenList& tkl,
         }
         EVAL_THROW(1, "invalid expression");
     }
-    if (beg->type == TokenType::LPAREN)  // "(1+2)", "(1+2)*3"
-    {
-        auto pIte = findParen(tkl, beg, end);
-        EVAL_THROW(pIte == end, "parentheses mismatched");
-        if (pIte + 1 == end) return evalExpr(tkl, beg + 1, pIte, depth + 1);
-    }
-    if (beg->type == TokenType::SUB)  // "-x", "-(1)", "-(x+1)+3"
+
+    if (beg->isSub())  // "-x", "-(1)", "-(x+1)+3"
     {
         int inParen = 0;
         auto ite = beg + 1;
         while (ite != end)
         {
-            if (ite->type == TokenType::LPAREN) ++inParen;
-            if (ite->type == TokenType::RPAREN) --inParen;
-            if (!inParen &&
-                (ite->type == TokenType::ADD || ite->type == TokenType::SUB))
+            if (ite->isLParen()) ++inParen;
+            if (ite->isRParen()) --inParen;
+            if (!inParen && (ite->isAdd() || ite->isSub()))
             {
                 --ite;
                 break;
@@ -66,24 +60,11 @@ operand_t Context::evalExpr(const TokenList& tkl,
         if (ite == end) return -evalExpr(tkl, beg + 1, end, depth + 1);
     }
 
-    if (beg->isSymbol())  // function
-    {
-        if (!isVar(beg, end))
-        {
-            auto fIte = funcTable.find(beg->getSymbol());
-            EVAL_THROW(fIte == funcTable.end(), "undefined symbol");
-            auto rParenIte = findParen(tkl, beg + 1, end);
-            EVAL_THROW(rParenIte == end, "parantheses mismatched");
-            if (rParenIte == end - 1)
-                return fIte->second.eval(*this, tkl, beg, end, depth + 1);
-        }
-    }
-
     int minPre = 4;
     TokenList::const_iterator mainOperatorIte;
     for (auto ite = beg; ite != end; ++ite)
     {
-        if (ite->type == TokenType::LPAREN)
+        if (ite->isLParen())
         {
             ite = findParen(tkl, ite, end);
             EVAL_THROW(ite == end, "parentheses mismatched");
@@ -100,48 +81,59 @@ operand_t Context::evalExpr(const TokenList& tkl,
         }
     }
 
-    EVAL_THROW(minPre == 4, "invalid expression");
-    switch (mainOperatorIte->type)
+    if (minPre != 4)
     {
-        case TokenType::ADD:
-            return evalExpr(tkl, beg, mainOperatorIte, depth + 1) +
-                   evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
-        case TokenType::SUB:
-            return evalExpr(tkl, beg, mainOperatorIte, depth + 1) -
-                   evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
-        case TokenType::MUL:
+        switch (mainOperatorIte->type)
         {
-            auto l = evalExpr(tkl, beg, mainOperatorIte, depth + 1);
-            if (l == operand_zero) return operand_zero;
-            return l * evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+            case TokenType::ADD:
+                return evalExpr(tkl, beg, mainOperatorIte, depth + 1) +
+                       evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+            case TokenType::SUB:
+                return evalExpr(tkl, beg, mainOperatorIte, depth + 1) -
+                       evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+            case TokenType::MUL:
+            {
+                auto l = evalExpr(tkl, beg, mainOperatorIte, depth + 1);
+                if (l == operand_zero) return operand_zero;
+                return l * evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+            }
+            case TokenType::DIV:
+            {
+                auto denominator =
+                    evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+                EVAL_THROW(denominator == operand_zero, "division by zero");
+                return evalExpr(tkl, beg, mainOperatorIte, depth + 1) /
+                       denominator;
+            }
+            case TokenType::POW:
+                return std::pow(
+                    evalExpr(tkl, beg, mainOperatorIte, depth + 1),
+                    evalExpr(tkl, mainOperatorIte + 1, end, depth + 1));
+            default:
+                EVAL_THROW(1, "unsupported expression");
         }
-        case TokenType::DIV:
-        {
-            auto denominator =
-                evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
-            EVAL_THROW(denominator == operand_zero, "division by zero");
-            return evalExpr(tkl, beg, mainOperatorIte, depth + 1) / denominator;
-        }
-        case TokenType::POW:
-            return std::pow(evalExpr(tkl, beg, mainOperatorIte, depth + 1),
-                            evalExpr(tkl, mainOperatorIte + 1, end, depth + 1));
-        default:
-            EVAL_THROW(1, "unsupported expression");
+    }
+    if (beg->isLParen())  // "(1+2)", "(1+2)*3"
+    {
+        EVAL_THROW(!(end - 1)->isRParen(), "parentheses mismatched");
+        return evalExpr(tkl, beg + 1, end - 1, depth + 1);
     }
 
-    EVAL_THROW(1, "unsupported expression");
+    auto fIte = funcTable.find(beg->getSymbol());
+    EVAL_THROW(fIte == funcTable.end(), "undefined symbol");
+    EVAL_THROW(!(end - 1)->isRParen(), "parentheses mismatched");
+    return fIte->second.eval(*this, tkl, beg, end, depth + 1);
 }
 
 bool Context::DefFunc(const TokenList& tkl)
 {
     if (tkl.size() < 6) return false;  // f(x)=x
-    if ((!tkl[0].isSymbol()) || (!(tkl[1].type == TokenType::LPAREN)))
-        return false;
+    if ((!tkl[0].isSymbol()) || (!(tkl[1].isLParen()))) return false;
     bool found = false;
     TokenList::const_iterator rParenIte;
     for (auto ite = tkl.begin() + 3; ite != tkl.end() - 1; ++ite)
     {
-        if (ite->type == TokenType::RPAREN && (ite + 1)->type == TokenType::EQ)
+        if (ite->isRParen() && (ite + 1)->isEq())
         {
             found = true;
             rParenIte = ite;
@@ -162,7 +154,7 @@ bool Context::DefFunc(const TokenList& tkl)
         ++idx;
         ++ite;
         if (ite == rParenIte) break;
-        if (ite->type != TokenType::COMMA) return false;
+        if (!ite->isComma()) return false;
         ++ite;
     }
     Function f(tkl.begin()->getSymbol(), parameterMap.size(), rParenIte + 2,
@@ -300,11 +292,11 @@ void Context::importMath()
             auto ite = tkl.begin();
             for (; ite != tkl.end(); ++ite)
             {
-                if (ite->type == TokenType::LPAREN)
+                if (ite->isLParen())
                     ++inParen;
-                else if (ite->type == TokenType::RPAREN)
+                else if (ite->isRParen())
                     --inParen;
-                else if (!inParen && ite->type == TokenType::COMMA)
+                else if (!inParen && ite->isComma())
                     break;
                 exprTokens.push_back(*ite);
             }
@@ -319,18 +311,17 @@ void Context::importMath()
             dummyVar = "#" + dummyVar;
             ++ite;
 
-            EVAL_THROW(ite->type != TokenType::COMMA,
-                       "wrong number of arguments");
+            EVAL_THROW(!ite->isComma(), "wrong number of arguments");
             ++ite;
 
             TokenList begExpr;
             for (; ite != tkl.end(); ++ite)
             {
-                if (ite->type == TokenType::LPAREN)
+                if (ite->isLParen())
                     ++inParen;
-                else if (ite->type == TokenType::RPAREN)
+                else if (ite->isRParen())
                     --inParen;
-                else if (!inParen && ite->type == TokenType::COMMA)
+                else if (!inParen && ite->isComma())
                     break;
                 begExpr.push_back(*ite);
             }
@@ -341,13 +332,11 @@ void Context::importMath()
             TokenList endExpr;
             for (; ite != tkl.end(); ++ite)
             {
-                if (ite->type == TokenType::LPAREN)
+                if (ite->isLParen())
                     ++inParen;
-                else if (ite->type == TokenType::RPAREN)
+                else if (ite->isRParen())
                     --inParen;
-                if (ite->type == TokenType::RPAREN ||
-                    (!inParen && ite->type == TokenType::COMMA))
-                    break;
+                if (ite->isRParen() || (!inParen && ite->isComma())) break;
                 endExpr.push_back(*ite);
             }
             operand_t end =
@@ -355,15 +344,15 @@ void Context::importMath()
 
             operand_t step;
             TokenList stepExpr;
-            if (ite->type == TokenType::COMMA)
+            if (ite->isComma())
             {
                 ++ite;
                 for (; ite != tkl.end(); ++ite)
                 {
-                    if (!inParen && ite->type == TokenType::RPAREN) break;
-                    if (ite->type == TokenType::LPAREN)
+                    if (!inParen && ite->isRParen()) break;
+                    if (ite->isLParen())
                         ++inParen;
-                    else if (ite->type == TokenType::RPAREN)
+                    else if (ite->isRParen())
                         --inParen;
                     stepExpr.push_back(*ite);
                 }
@@ -406,11 +395,11 @@ void Context::importMath()
             auto ite = tkl.begin();
             for (; ite != tkl.end(); ++ite)
             {
-                if (ite->type == TokenType::LPAREN)
+                if (ite->isLParen())
                     ++inParen;
-                else if (ite->type == TokenType::RPAREN)
+                else if (ite->isRParen())
                     --inParen;
-                else if (!inParen && ite->type == TokenType::COMMA)
+                else if (!inParen && ite->isComma())
                     break;
                 exprTokens.push_back(*ite);
             }
@@ -425,18 +414,17 @@ void Context::importMath()
             dummyVar = "#" + dummyVar;
             ++ite;
 
-            EVAL_THROW(ite->type != TokenType::COMMA,
-                       "wrong number of arguments");
+            EVAL_THROW(!ite->isComma(), "wrong number of arguments");
             ++ite;
 
             TokenList begExpr;
             for (; ite != tkl.end(); ++ite)
             {
-                if (ite->type == TokenType::LPAREN)
+                if (ite->isLParen())
                     ++inParen;
-                else if (ite->type == TokenType::RPAREN)
+                else if (ite->isRParen())
                     --inParen;
-                else if (!inParen && ite->type == TokenType::COMMA)
+                else if (!inParen && ite->isComma())
                     break;
                 begExpr.push_back(*ite);
             }
@@ -447,13 +435,11 @@ void Context::importMath()
             TokenList endExpr;
             for (; ite != tkl.end(); ++ite)
             {
-                if (ite->type == TokenType::LPAREN)
+                if (ite->isLParen())
                     ++inParen;
-                else if (ite->type == TokenType::RPAREN)
+                else if (ite->isRParen())
                     --inParen;
-                if (ite->type == TokenType::RPAREN ||
-                    (!inParen && ite->type == TokenType::COMMA))
-                    break;
+                if (ite->isRParen() || (!inParen && ite->isComma())) break;
                 endExpr.push_back(*ite);
             }
             operand_t end =
@@ -461,15 +447,15 @@ void Context::importMath()
 
             operand_t step;
             TokenList stepExpr;
-            if (ite->type == TokenType::COMMA)
+            if (ite->isComma())
             {
                 ++ite;
                 for (; ite != tkl.end(); ++ite)
                 {
-                    if (!inParen && ite->type == TokenType::RPAREN) break;
-                    if (ite->type == TokenType::LPAREN)
+                    if (!inParen && ite->isRParen()) break;
+                    if (ite->isLParen())
                         ++inParen;
-                    else if (ite->type == TokenType::RPAREN)
+                    else if (ite->isRParen())
                         --inParen;
                     stepExpr.push_back(*ite);
                 }
