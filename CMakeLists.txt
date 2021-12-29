@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.2)
 project(evaluator)
-set(CMAKE_CXX_FLAGS "-std=c++17 -O2")
-add_compile_options(-Wall)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS_DEBUG "-Wall -O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-Wall -O2")
 include_directories(./include)
 
-file(GLOB_RECURSE SRC_LIST "src/*.cpp")
-add_executable(eval ${SRC_LIST})
+add_executable(eval src/Context.cpp 
+                    src/Function.cpp
+                    src/Tokenizer.cpp
+                    src/main.cpp)
+
+add_library(evaluator STATIC src/Context.cpp 
+                            src/Function.cpp
+                            src/Tokenizer.cpp)
