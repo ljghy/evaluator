@@ -2,26 +2,26 @@
 #include <iostream>
 
 #include "evaluator/Context.h"
-std::unordered_map<std::string, std::function<void(evaluator::Context&)>>
-    commandTable{
-        {"exit", [](evaluator::Context&) { exit(0); }},
-        {"math", [](evaluator::Context& context) { context.importMath(); }},
-        {"list",
-         [](evaluator::Context& context)
-         {
-             std::cout << " - Variables:\n";
-             for (const auto& p : context.varTable)
-                 std::cout << '\t' << p.first << " = " << p.second << '\n';
-             std::cout << " - Functions:\n";
-             std::cout << '\t';
-             for (const auto& p : context.funcTable)
-                 std::cout << p.first << ", ";
-             std::cout << '\n';
-         }}
+std::unordered_map<std::string, std::function<void(eval::Context&)>>
+    commandTable{{"exit", [](eval::Context&) { exit(0); }},
+                 {"math", [](eval::Context& context) { context.importMath(); }},
+                 {"list",
+                  [](eval::Context& context)
+                  {
+                      std::cout << " - Variables:\n";
+                      for (const auto& p : context.varTable)
+                          std::cout << '\t' << p.first << " = " << p.second
+                                    << '\n';
+                      std::cout << " - Functions:\n";
+                      std::cout << '\t';
+                      for (const auto& p : context.funcTable)
+                          std::cout << p.first << ", ";
+                      std::cout << '\n';
+                  }}
 
     };
 
-void process(const std::string& input, evaluator::Context& context,
+void process(const std::string& input, eval::Context& context,
              std::vector<std::string>& record)
 {
     if (input.empty()) return;
@@ -60,7 +60,7 @@ void process(const std::string& input, evaluator::Context& context,
         {
             record.push_back(input);
             auto ret = context.exec(input);
-            if (ret.first == evaluator::ExprType::EXPR)
+            if (ret.first == eval::ExprType::EXPR)
                 std::cout << " = " << ret.second << '\n';
         }
         catch (const std::exception& e)
@@ -73,7 +73,7 @@ void process(const std::string& input, evaluator::Context& context,
 
 int main(int argc, char* argv[])
 {
-    evaluator::Context context;
+    eval::Context context;
     std::vector<std::string> record;
     std::cout << std::fixed;
     if (argc == 2)

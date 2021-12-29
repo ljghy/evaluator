@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
-namespace evaluator
+namespace eval
 {
 Context::Context()
 {
@@ -487,4 +487,4 @@ void Context::importMath()
             return s;
         });
 }
-}  // namespace evaluator
+}  // namespace eval

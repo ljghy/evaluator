@@ -1,7 +1,7 @@
 #include "evaluator/Function.h"
 
 #include "evaluator/Context.h"
-namespace evaluator
+namespace eval
 {
 Function::Function(FuncType t, decltype(definition) def)
     : type(t), definition(def)
@@ -72,4 +72,4 @@ operand_t Function::eval(Context& context, const TokenList& tkl,
     setArguments(args, cpy);
     return context.evalExpr(cpy, cpy.begin(), cpy.end(), depth + 1);
 }
-}  // namespace evaluator
+}  // namespace eval

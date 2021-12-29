@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "evaluator/EvaluatorDefs.h"
-namespace evaluator
+namespace eval
 {
 enum class TokenType
 {
@@ -147,6 +147,6 @@ class TokenList : public std::vector<Token>
 TokenList::const_iterator findParen(const TokenList::const_iterator& beg,
                                     const TokenList::const_iterator& end);
 
-}  // namespace evaluator
+}  // namespace eval
 
 #endif

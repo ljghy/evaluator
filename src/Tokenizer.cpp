@@ -1,5 +1,5 @@
 #include "evaluator/Tokenizer.h"
-namespace evaluator
+namespace eval
 {
 std::string Token::toString() const
 {
@@ -225,4 +225,4 @@ TokenList::const_iterator findParen(const TokenList::const_iterator& beg,
     return ite;
 }
 
-}  // namespace evaluator
+}  // namespace eval

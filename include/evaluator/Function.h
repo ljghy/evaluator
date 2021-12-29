@@ -7,7 +7,7 @@
 #include "evaluator/EvaluatorDefs.h"
 #include "evaluator/Tokenizer.h"
 
-namespace evaluator
+namespace eval
 {
 class Context;
 enum class FuncType
@@ -38,6 +38,6 @@ class Function
                    const TokenList::const_iterator& beg,
                    const TokenList::const_iterator& end, unsigned int depth);
 };
-}  // namespace evaluator
+}  // namespace eval
 
 #endif

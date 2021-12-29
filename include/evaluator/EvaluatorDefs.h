@@ -5,7 +5,7 @@
 
 #define EVAL_DECIMAL_OPERAND
 
-namespace evaluator
+namespace eval
 {
 using int_t = int;
 using decimal_t = long double;
@@ -70,6 +70,6 @@ class EvalException : public std::runtime_error
 #else
 #define EVAL_THROW(cond, msg)
 #endif
-}  // namespace evaluator
+}  // namespace eval
 
 #endif

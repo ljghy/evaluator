@@ -6,7 +6,7 @@
 
 #include "evaluator/EvaluatorDefs.h"
 #include "evaluator/Function.h"
-namespace evaluator
+namespace eval
 {
 enum class ExprType
 {
@@ -52,6 +52,6 @@ class Context
 
     virtual ~Context() {}
 };
-}  // namespace evaluator
+}  // namespace eval
 
 #endif
