@@ -45,7 +45,7 @@ class Context
     bool DefFunc(const TokenList& tkl);
 
    public:
-    Context() { varTable["ANS"] = operand_zero; }
+    Context();
     void importMath();
 
     std::pair<ExprType, operand_t> exec(const std::string& input);

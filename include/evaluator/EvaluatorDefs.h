@@ -3,11 +3,18 @@
 
 #include <stdexcept>
 
+#define EVAL_DECIMAL_OPERAND
+
 namespace evaluator
 {
 using int_t = int;
 using decimal_t = long double;
+#ifdef EVAL_DECIMAL_OPERAND
 using operand_t = decimal_t;
+#else
+using operand_t = int_t;
+#endif
+
 constexpr operand_t operand_zero = 0;
 constexpr operand_t operand_one = 1;
 
@@ -26,6 +33,7 @@ enum EVAL_EXCEPTION
     EVAL_UNEXPECTED_TOKEN_TYPE,
     EVAL_PARSE_FAILED,
     EVAL_OPERAND_OVERFLOW,
+    EVAL_OPERAND_PARSER_UNDEFINED,
 };
 
 static const char* EVAL_EXCEPTION_MSG[]{"invalid expression",
@@ -38,13 +46,14 @@ static const char* EVAL_EXCEPTION_MSG[]{"invalid expression",
                                         "infinite loop",
                                         "unexpected token type",
                                         "parse failed",
-                                        "operand overflow"};
+                                        "operand overflow",
+                                        "operand parser undefined"};
 
 class EvalException : public std::runtime_error
 {
    public:
     EVAL_EXCEPTION code;
-    EvalException(const EVAL_EXCEPTION& e)
+    explicit EvalException(const EVAL_EXCEPTION& e)
         : std::runtime_error(EVAL_EXCEPTION_MSG[e]), code(e)
     {
     }

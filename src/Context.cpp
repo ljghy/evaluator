@@ -1,8 +1,16 @@
 #include "evaluator/Context.h"
 
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
 namespace evaluator
 {
+Context::Context()
+{
+    varTable["ANS"] = operand_zero;
+    srand(time(0));
+}
+
 std::pair<ExprType, operand_t> Context::exec(const std::string& input)
 {
     auto tkList = TokenList(input);
@@ -32,55 +40,57 @@ operand_t Context::evalExpr(const TokenList& tkl,
     if (beg + 1 == end)  // "1", "x"
     {
         if (beg->isOperand()) return beg->getOperand();
-        if (beg->isSymbol())
-        {
-            auto vIte = varTable.find(beg->getSymbol());
-            EVAL_THROW(vIte == varTable.end(), EVAL_UNDEFINED_SYMBOL);
-            return vIte->second;
-        }
-        EVAL_THROW(1, EVAL_INVALID_EXPR);
+        EVAL_THROW(!beg->isSymbol(), EVAL_INVALID_EXPR);
+        auto vIte = varTable.find(beg->getSymbol());
+        EVAL_THROW(vIte == varTable.end(), EVAL_UNDEFINED_SYMBOL);
+        return vIte->second;
     }
+    int minPre = 4;
+    TokenList::const_iterator mainOperatorIte;
 
     if (beg->isSub())  // "-x", "-(1)", "-(x+1)+3"
     {
         int inParen = 0;
         auto ite = beg + 1;
-        while (ite != end)
+        for (; ite != end; ++ite)
         {
-            if (ite->isLParen()) ++inParen;
-            if (ite->isRParen()) --inParen;
-            if (!inParen && (ite->isAdd() || ite->isSub()))
-            {
-                --ite;
+            if (ite->isLParen())
+                ++inParen;
+            else if (ite->isRParen())
+                --inParen;
+            else if (!inParen && (ite->isAdd() || ite->isSub()))
                 break;
-            }
-            ++ite;
         }
-        EVAL_THROW(inParen && ite == end, EVAL_PAREN_MISMATCH);
-        if (ite == end) return -evalExpr(tkl, beg + 1, end, depth + 1);
+        if (ite == end)
+        {
+            EVAL_THROW(inParen, EVAL_PAREN_MISMATCH);
+            return -evalExpr(tkl, beg + 1, end, depth + 1);
+        }
+        minPre = 1;
+        mainOperatorIte = ite;
     }
 
-    int minPre = 4;
-    TokenList::const_iterator mainOperatorIte;
-    for (auto ite = beg; ite != end; ++ite)
+    if (minPre == 4)
     {
-        if (ite->isLParen())
+        for (auto ite = beg; ite != end; ++ite)
         {
-            ite = findParen(ite, end);
-            EVAL_THROW(ite == end, EVAL_PAREN_MISMATCH);
-            continue;
-        }
-        if (ite->isOperator() && !isNeg(beg, ite))
-        {
-            int pre = getOperatorPrecedence(ite->type);
-            if (pre <= minPre)
+            if (ite->isLParen())
             {
-                minPre = pre;
-                mainOperatorIte = ite;
+                ite = findParen(ite, end);
+                EVAL_THROW(ite == end, EVAL_PAREN_MISMATCH);
+                continue;
+            }
+            if (ite->isOperator() && !isNeg(beg, ite))
+            {
+                int pre = getOperatorPrecedence(ite->type);
+                if (pre <= minPre)
+                {
+                    minPre = pre;
+                    mainOperatorIte = ite;
+                }
             }
         }
     }
-
     if (minPre != 4)
     {
         switch (mainOperatorIte->type)
@@ -168,8 +178,10 @@ bool Context::DefFunc(const TokenList& tkl)
 
 void Context::importMath()
 {
+#ifdef EVAL_DECIMAL_OPERAND
     varTable["pi"] = 3.14159265358979323846264338328;
     varTable["e"] = 2.71828182845904523536028747135;
+#endif
 
     funcTable["eq"] =
         Function(FuncType::ORDINARY,
@@ -202,6 +214,7 @@ void Context::importMath()
                  [](const TokenList& tkl, Context&) -> operand_t
                  { return tkl[0].getOperand() > tkl[1].getOperand(); });
 
+#ifdef EVAL_DECIMAL_OPERAND
     funcTable["ln"] = Function(FuncType::ORDINARY,
                                [](const TokenList& tkl, Context&) -> operand_t
                                { return log(tkl[0].getOperand()); });
@@ -247,13 +260,35 @@ void Context::importMath()
     funcTable["ceil"] = Function(FuncType::ORDINARY,
                                  [](const TokenList& tkl, Context&) -> operand_t
                                  { return ceil(tkl[0].getOperand()); });
-
-    funcTable["abs"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
-                                { return abs(tkl[0].getOperand()); });
     funcTable["exp"] = Function(FuncType::ORDINARY,
                                 [](const TokenList& tkl, Context&) -> operand_t
                                 { return exp(tkl[0].getOperand()); });
+    funcTable["erf"] = Function(FuncType::ORDINARY,
+                                [](const TokenList& tkl, Context&) -> operand_t
+                                { return erf(tkl[0].getOperand()); });
+#endif
+
+    funcTable["abs"] = Function(FuncType::ORDINARY,
+                                [](const TokenList& tkl, Context&) -> operand_t
+                                {
+#ifdef EVAL_DECIMAL_OPERAND
+                                    return fabs(tkl[0].getOperand());
+#else
+                                    return abs(tkl[0].getOperand());
+#endif
+                                });
+
+    funcTable["rand"] = Function(FuncType::ORDINARY,
+                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 {
+                                     auto a = tkl[0].getOperand(),
+                                          b = tkl[1].getOperand();
+#ifdef EVAL_DECIMAL_OPERAND
+                                     return a + rand() * (b - a) / RAND_MAX;
+#else
+                                    return a + rand()%(b-a);
+#endif
+                                 });
 
     funcTable["max"] = Function(FuncType::ORDINARY,
                                 [](const TokenList& tkl, Context&) -> operand_t

@@ -99,7 +99,7 @@ class TokenList : public std::vector<Token>
     static bool parseOperand(std::string::const_iterator&,
                              const std::string::const_iterator&, T&)
     {
-        throw EvalException("operand parser undefined");
+        throw EvalException(EVAL_OPERAND_PARSER_UNDEFINED);
     }
 
     static inline bool isDigit(char c) { return '0' <= c && c <= '9'; }
