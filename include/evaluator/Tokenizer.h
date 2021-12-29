@@ -147,6 +147,9 @@ class TokenList : public std::vector<Token>
 TokenList::const_iterator findParen(const TokenList::const_iterator& beg,
                                     const TokenList::const_iterator& end);
 
+TokenList::const_iterator findArgSep(const TokenList::const_iterator& beg,
+                                     const TokenList::const_iterator& end);
+
 }  // namespace eval
 
 #endif

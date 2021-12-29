@@ -208,21 +208,34 @@ bool TokenList::parseSymbol(std::string::const_iterator& ite,
 TokenList::const_iterator findParen(const TokenList::const_iterator& beg,
                                     const TokenList::const_iterator& end)
 {
-    int parenCount = 0;
+    int inParen = 0;
     auto ite = beg;
     for (; ite != end; ++ite)
     {
-        if (ite->type == TokenType::LPAREN)
-        {
-            ++parenCount;
-        }
-        else if (ite->type == TokenType::RPAREN)
-        {
-            --parenCount;
-            if (parenCount == 0) break;
-        }
+        if (ite->isLParen())
+            ++inParen;
+        else if (ite->isRParen() && (!(--inParen)))
+            return ite;
     }
     return ite;
 }
-
+TokenList::const_iterator findArgSep(const TokenList::const_iterator& beg,
+                                     const TokenList::const_iterator& end)
+{
+    int inParen = 0;
+    auto ite = beg;
+    for (; ite != end; ++ite)
+    {
+        if (ite->isLParen())
+            ++inParen;
+        else if (ite->isRParen())
+        {
+            if (!inParen) return ite;
+            --inParen;
+        }
+        else if (!inParen && ite->isComma())
+            return ite;
+    }
+    return ite;
+}
 }  // namespace eval
