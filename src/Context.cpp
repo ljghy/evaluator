@@ -341,7 +341,7 @@ void Context::importMath()
             if (ite->isComma())
             {
                 auto stepIte = ++ite;
-                ite = findArgSep(endIte, tkl.end());
+                ite = findArgSep(stepIte, tkl.end());
                 EVAL_THROW(!ite->isRParen(), EVAL_WRONG_NUMBER_OF_ARGS);
                 step = context.evalExpr(tkl, stepIte, ite);
                 EVAL_THROW((end - beg) * step < operand_zero,
@@ -399,7 +399,7 @@ void Context::importMath()
             if (ite->isComma())
             {
                 auto stepIte = ++ite;
-                ite = findArgSep(endIte, tkl.end());
+                ite = findArgSep(stepIte, tkl.end());
                 EVAL_THROW(!ite->isRParen(), EVAL_WRONG_NUMBER_OF_ARGS);
                 step = context.evalExpr(tkl, stepIte, ite);
                 EVAL_THROW((end - beg) * step < operand_zero,
