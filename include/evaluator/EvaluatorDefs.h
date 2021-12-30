@@ -5,6 +5,8 @@
 
 #define EVAL_DECIMAL_OPERAND
 
+#define EVAL_DO_TYPE_CHECK
+
 namespace eval
 {
 using int_t = int;
@@ -58,8 +60,6 @@ class EvalException : public std::runtime_error
     {
     }
 };
-
-#define EVAL_DO_TYPE_CHECK
 
 #ifndef EVAL_NO_THROW
 #define EVAL_THROW(cond, msg)               \

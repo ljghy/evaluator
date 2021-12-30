@@ -24,8 +24,7 @@ void Function::setArguments(const TokenList& args, TokenList& tkl)
 
 operand_t Function::eval(Context& context, const TokenList& tkl,
                          const TokenList::const_iterator& beg,
-                         const TokenList::const_iterator& end,
-                         unsigned int depth)
+                         const TokenList::const_iterator& end)
 {
     if (type == FuncType::HIGH_ORDER)
         return definition(TokenList(beg + 2, end), context);
@@ -36,40 +35,30 @@ operand_t Function::eval(Context& context, const TokenList& tkl,
     auto start = beg + 2;
     for (auto ite = beg + 2; ite != end; ++ite)
     {
-        if (ite->isLParen())
+        ite = findArgSep(start, end);
+        auto len = ite - start;
+        if (len == 1 && start->isSymbol())
         {
-            ite = findParen(ite, end);
-            EVAL_THROW(ite == end, EVAL_PAREN_MISMATCH);
-            continue;
-        }
-
-        if (ite->isComma() || ite->isRParen())
-        {
-            auto len = ite - start;
-            if (len == 1 && start->isSymbol())
-            {
-                std::string symbol = start->getSymbol();
-                auto vIte = context.varTable.find(symbol);
-                if (vIte != context.varTable.end())
-                    args.push_back(Token(vIte->second));
-                else
-                {
-                    auto fIte = context.funcTable.find(symbol);
-                    EVAL_THROW(fIte == context.funcTable.end(),
-                               EVAL_UNDEFINED_SYMBOL);
-                    args.push_back(Token(symbol));
-                }
-            }
+            std::string symbol = start->getSymbol();
+            auto vIte = context.varTable.find(symbol);
+            if (vIte != context.varTable.end())
+                args.push_back(Token(vIte->second));
             else
-                args.push_back(
-                    Token(context.evalExpr(tkl, start, ite, depth + 1)));
-            start = ite + 1;
+            {
+                auto fIte = context.funcTable.find(symbol);
+                EVAL_THROW(fIte == context.funcTable.end(),
+                           EVAL_UNDEFINED_SYMBOL);
+                args.push_back(Token(symbol));
+            }
         }
+        else
+            args.push_back(Token(context.evalExpr(tkl, start, ite)));
+        start = ite + 1;
     }
 
     if (type == FuncType::ORDINARY) return definition(args, context);
     TokenList cpy(tkList);
     setArguments(args, cpy);
-    return context.evalExpr(cpy, cpy.begin(), cpy.end(), depth + 1);
+    return context.evalExpr(cpy, cpy.begin(), cpy.end());
 }
 }  // namespace eval

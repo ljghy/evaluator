@@ -1,10 +1,10 @@
 !math
-f(x, s) = e ^ (-x) * x ^ (s - 1)
-step = 1e-3
-Gamma(s) = SUM(f(x, s), x, 0, 10, step) * step
-Gamma(1.5) 
-
 Normal(x, mu, sigma) = 1 / ((2 * pi) ^ 0.5 * sigma) * e ^ (-(x - mu) ^ 2 / ( 2 * sigma ^ 2))
 StdNormal(x) = Normal(x, 0, 1)
 
 Ack(m, n) = eq(m, 0) * (n + 1) + eq(n, 0) * Ack(m - 1, 1) + neq(m * n, 0) * Ack(m - 1, Ack(m, n - 1))
+
+r(f, a, b, m, e) = IF_ELSE(gt(abs(f(m)), e), IF_ELSE(lt(f(a) * f(m), 0), r(f, a, m, (a + m)/2, e), r(f, m, b, (m + b)/2, e)), m)
+root(f, a, b, e) = r(f, a, b, (a + b)/2, e)
+f(x) = x ^ 5 - x ^ 4 + 2 * x - 3
+root(f, 0, 2, 1e-8)

@@ -3,9 +3,17 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#define EVAL_RETURN(x) \
+    do                 \
+    {                  \
+        auto tmp = x;  \
+        --depth;       \
+        return tmp;    \
+    } while (0)
+
 namespace eval
 {
-Context::Context()
+Context::Context() : depth(0)
 {
     varTable["ANS"] = operand_zero;
     srand(time(0));
@@ -13,6 +21,7 @@ Context::Context()
 
 std::pair<ExprType, operand_t> Context::exec(const std::string& input)
 {
+    depth = 0;
     auto tkList = TokenList(input);
     if (tkList.size() > 2 && tkList[0].isSymbol() &&
         tkList[1].isEq())  // Assigning value to variable
@@ -31,18 +40,18 @@ std::pair<ExprType, operand_t> Context::exec(const std::string& input)
 
 operand_t Context::evalExpr(const TokenList& tkl,
                             const TokenList::const_iterator& beg,
-                            const TokenList::const_iterator& end,
-                            unsigned int depth)
+                            const TokenList::const_iterator& end)
 {
-    EVAL_THROW(depth > maxRecursionDepth, EVAL_STACK_OVERFLOW);
     EVAL_THROW(beg >= end, EVAL_INVALID_EXPR);
+    EVAL_THROW(depth > maxRecursionDepth, EVAL_STACK_OVERFLOW);
+    ++depth;
     if (beg + 1 == end)  // "1", "x"
     {
-        if (beg->isOperand()) return beg->getOperand();
+        if (beg->isOperand()) EVAL_RETURN(beg->getOperand());
         EVAL_THROW(!beg->isSymbol(), EVAL_INVALID_EXPR);
         auto vIte = varTable.find(beg->getSymbol());
         EVAL_THROW(vIte == varTable.end(), EVAL_UNDEFINED_SYMBOL);
-        return vIte->second;
+        EVAL_RETURN(vIte->second);
     }
     int minPre = 4;
     TokenList::const_iterator mainOperatorIte;
@@ -63,7 +72,7 @@ operand_t Context::evalExpr(const TokenList& tkl,
         if (ite == end)
         {
             EVAL_THROW(inParen, EVAL_PAREN_MISMATCH);
-            return -evalExpr(tkl, beg + 1, end, depth + 1);
+            EVAL_RETURN(-evalExpr(tkl, beg + 1, end));
         }
         minPre = 1;
         mainOperatorIte = ite;
@@ -95,29 +104,26 @@ operand_t Context::evalExpr(const TokenList& tkl,
         switch (mainOperatorIte->type)
         {
             case TokenType::ADD:
-                return evalExpr(tkl, beg, mainOperatorIte, depth + 1) +
-                       evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+                EVAL_RETURN(evalExpr(tkl, beg, mainOperatorIte) +
+                            evalExpr(tkl, mainOperatorIte + 1, end));
             case TokenType::SUB:
-                return evalExpr(tkl, beg, mainOperatorIte, depth + 1) -
-                       evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+                EVAL_RETURN(evalExpr(tkl, beg, mainOperatorIte) -
+                            evalExpr(tkl, mainOperatorIte + 1, end));
             case TokenType::MUL:
             {
-                auto l = evalExpr(tkl, beg, mainOperatorIte, depth + 1);
-                if (l == operand_zero) return operand_zero;
-                return l * evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+                auto l = evalExpr(tkl, beg, mainOperatorIte);
+                if (l == operand_zero) EVAL_RETURN(operand_zero);
+                EVAL_RETURN(l * evalExpr(tkl, mainOperatorIte + 1, end));
             }
             case TokenType::DIV:
             {
-                auto denominator =
-                    evalExpr(tkl, mainOperatorIte + 1, end, depth + 1);
+                auto denominator = evalExpr(tkl, mainOperatorIte + 1, end);
                 EVAL_THROW(denominator == operand_zero, EVAL_DIV_BY_ZERO);
-                return evalExpr(tkl, beg, mainOperatorIte, depth + 1) /
-                       denominator;
+                EVAL_RETURN(evalExpr(tkl, beg, mainOperatorIte) / denominator);
             }
             case TokenType::POW:
-                return std::pow(
-                    evalExpr(tkl, beg, mainOperatorIte, depth + 1),
-                    evalExpr(tkl, mainOperatorIte + 1, end, depth + 1));
+                EVAL_RETURN(std::pow(evalExpr(tkl, beg, mainOperatorIte),
+                                     evalExpr(tkl, mainOperatorIte + 1, end)));
             default:
                 EVAL_THROW(1, EVAL_INVALID_EXPR);
         }
@@ -125,13 +131,13 @@ operand_t Context::evalExpr(const TokenList& tkl,
     if (beg->isLParen())  // "(1+2)", "(1+2)*3"
     {
         EVAL_THROW(!(end - 1)->isRParen(), EVAL_PAREN_MISMATCH);
-        return evalExpr(tkl, beg + 1, end - 1, depth + 1);
+        EVAL_RETURN(evalExpr(tkl, beg + 1, end - 1));
     }
 
     auto fIte = funcTable.find(beg->getSymbol());
     EVAL_THROW(fIte == funcTable.end(), EVAL_UNDEFINED_SYMBOL);
     EVAL_THROW(!(end - 1)->isRParen(), EVAL_PAREN_MISMATCH);
-    return fIte->second.eval(*this, tkl, beg, end, depth + 1);
+    EVAL_RETURN(fIte->second.eval(*this, tkl, beg, end));
 }
 
 bool Context::DefFunc(const TokenList& tkl)
@@ -320,8 +326,8 @@ void Context::importMath()
                 if (t.isSymbol() && t.getSymbol() == dummyVar)
                     t = Token("#" + t.getSymbol());  // temp variable
             dummyVar = "#" + dummyVar;
-
-            EVAL_THROW(!(++ite)->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
+            ++ite;
+            EVAL_THROW(!ite->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
 
             auto begIte = ++ite;
             ite = findArgSep(begIte, tkl.end());
@@ -378,8 +384,8 @@ void Context::importMath()
                 if (t.isSymbol() && t.getSymbol() == dummyVar)
                     t = Token("#" + t.getSymbol());  // temp variable
             dummyVar = "#" + dummyVar;
-
-            EVAL_THROW(!(++ite)->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
+            ++ite;
+            EVAL_THROW(!ite->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
 
             auto begIte = ++ite;
             ite = findArgSep(begIte, tkl.end());

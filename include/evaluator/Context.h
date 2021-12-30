@@ -17,6 +17,9 @@ enum class ExprType
 
 class Context
 {
+   protected:
+    unsigned int depth;
+
    public:
     std::unordered_map<std::string, operand_t> varTable;
     std::unordered_map<std::string, Function> funcTable;
@@ -39,8 +42,7 @@ class Context
 
     operand_t evalExpr(const TokenList& tkl,
                        const TokenList::const_iterator& beg,
-                       const TokenList::const_iterator& end,
-                       unsigned int depth = 0);
+                       const TokenList::const_iterator& end);
 
     bool DefFunc(const TokenList& tkl);
 
