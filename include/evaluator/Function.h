@@ -4,8 +4,8 @@
 #include <functional>
 #include <list>
 
-#include "evaluator/EvaluatorDefs.h"
-#include "evaluator/Tokenizer.h"
+#include <evaluator/EvaluatorDefs.h>
+#include <evaluator/Tokenizer.h>
 
 namespace eval
 {

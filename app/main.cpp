@@ -1,30 +1,33 @@
 #include <fstream>
 #include <iostream>
 
-#include "evaluator/Context.h"
-std::unordered_map<std::string, std::function<void(eval::Context&)>>
-    commandTable{{"exit", [](eval::Context&) { exit(0); }},
-                 {"math", [](eval::Context& context) { context.importMath(); }},
+#include <evaluator/Context.h>
+std::unordered_map<std::string, std::function<void(eval::Context &)>>
+    commandTable{{"exit", [](eval::Context &)
+                  { exit(0); }},
+                 {"math", [](eval::Context &context)
+                  { context.importMath(); }},
                  {"list",
-                  [](eval::Context& context)
+                  [](eval::Context &context)
                   {
                       std::cout << " - Variables:\n";
-                      for (const auto& p : context.varTable)
+                      for (const auto &p : context.varTable)
                           std::cout << '\t' << p.first << " = " << p.second
                                     << '\n';
                       std::cout << " - Functions:\n";
                       std::cout << '\t';
-                      for (const auto& p : context.funcTable)
+                      for (const auto &p : context.funcTable)
                           std::cout << p.first << ", ";
                       std::cout << '\n';
                   }}
 
     };
 
-void process(const std::string& input, eval::Context& context,
-             std::vector<std::string>& record)
+void process(const std::string &input, eval::Context &context,
+             std::vector<std::string> &record)
 {
-    if (input.empty()) return;
+    if (input.empty())
+        return;
     if (input[0] == '!')
     {
         auto cmd = input.substr(1);
@@ -40,7 +43,8 @@ void process(const std::string& input, eval::Context& context,
                 std::cout << "failed to save to file " << path << '\n';
                 return;
             }
-            for (const auto& s : record) os << s << '\n';
+            for (const auto &s : record)
+                os << s << '\n';
             std::cout << "saved to " << path << '\n';
             os.close();
             return;
@@ -63,7 +67,7 @@ void process(const std::string& input, eval::Context& context,
             if (ret.first == eval::ExprType::EXPR)
                 std::cout << " = " << ret.second << '\n';
         }
-        catch (const std::exception& e)
+        catch (const std::exception &e)
         {
             std::cerr << e.what() << std::endl;
             record.pop_back();
@@ -71,7 +75,7 @@ void process(const std::string& input, eval::Context& context,
     }
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     eval::Context context;
     std::vector<std::string> record;

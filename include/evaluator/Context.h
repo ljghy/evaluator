@@ -4,8 +4,8 @@
 #include <unordered_map>
 #include <utility>
 
-#include "evaluator/EvaluatorDefs.h"
-#include "evaluator/Function.h"
+#include <evaluator/EvaluatorDefs.h>
+#include <evaluator/Function.h>
 namespace eval
 {
 enum class ExprType

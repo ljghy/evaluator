@@ -5,7 +5,7 @@
 #include <variant>
 #include <vector>
 
-#include "evaluator/EvaluatorDefs.h"
+#include <evaluator/EvaluatorDefs.h>
 namespace eval
 {
 enum class TokenType
