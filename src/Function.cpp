@@ -22,7 +22,7 @@ void Function::setArguments(const TokenList& args, TokenList& tkl)
         for (auto& idx : parameterTable[i]) tkl[idx] = args[i];
 }
 
-operand_t Function::eval(Context& context, const TokenList& tkl,
+operand_t Function::eval(Context& context,
                          const TokenList::const_iterator& beg,
                          const TokenList::const_iterator& end)
 {
@@ -52,13 +52,13 @@ operand_t Function::eval(Context& context, const TokenList& tkl,
             }
         }
         else
-            args.push_back(Token(context.evalExpr(tkl, start, ite)));
+            args.push_back(Token(context.evalExpr(start, ite)));
         start = ite + 1;
     }
 
     if (type == FuncType::ORDINARY) return definition(args, context);
     TokenList cpy(tkList);
     setArguments(args, cpy);
-    return context.evalExpr(cpy, cpy.begin(), cpy.end());
+    return context.evalExpr(cpy.begin(), cpy.end());
 }
 }  // namespace eval

@@ -40,8 +40,7 @@ class Context
                (pre->type != TokenType::RPAREN);
     }
 
-    operand_t evalExpr(const TokenList& tkl,
-                       const TokenList::const_iterator& beg,
+    operand_t evalExpr(const TokenList::const_iterator& beg,
                        const TokenList::const_iterator& end);
 
     bool DefFunc(const TokenList& tkl);

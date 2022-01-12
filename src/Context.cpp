@@ -27,7 +27,7 @@ std::pair<ExprType, operand_t> Context::exec(const std::string& input)
         tkList[1].isEq())  // Assigning value to variable
     {
         varTable[tkList.begin()->getSymbol()] =
-            evalExpr(tkList, tkList.begin() + 2, tkList.end());
+            evalExpr(tkList.begin() + 2, tkList.end());
         return {ExprType::VAR_ASSIGN, operand_zero};
     }
     if (DefFunc(tkList))
@@ -35,11 +35,10 @@ std::pair<ExprType, operand_t> Context::exec(const std::string& input)
         return {ExprType::FUNC_DEF, operand_zero};
     }
     return {ExprType::EXPR,
-            varTable["ANS"] = evalExpr(tkList, tkList.begin(), tkList.end())};
+            varTable["ANS"] = evalExpr(tkList.begin(), tkList.end())};
 }
 
-operand_t Context::evalExpr(const TokenList& tkl,
-                            const TokenList::const_iterator& beg,
+operand_t Context::evalExpr(const TokenList::const_iterator& beg,
                             const TokenList::const_iterator& end)
 {
     EVAL_THROW(beg >= end, EVAL_INVALID_EXPR);
@@ -72,7 +71,7 @@ operand_t Context::evalExpr(const TokenList& tkl,
         if (ite == end)
         {
             EVAL_THROW(inParen, EVAL_PAREN_MISMATCH);
-            EVAL_RETURN(-evalExpr(tkl, beg + 1, end));
+            EVAL_RETURN(-evalExpr(beg + 1, end));
         }
         minPre = 1;
         mainOperatorIte = ite;
@@ -104,26 +103,26 @@ operand_t Context::evalExpr(const TokenList& tkl,
         switch (mainOperatorIte->type)
         {
             case TokenType::ADD:
-                EVAL_RETURN(evalExpr(tkl, beg, mainOperatorIte) +
-                            evalExpr(tkl, mainOperatorIte + 1, end));
+                EVAL_RETURN(evalExpr(beg, mainOperatorIte) +
+                            evalExpr(mainOperatorIte + 1, end));
             case TokenType::SUB:
-                EVAL_RETURN(evalExpr(tkl, beg, mainOperatorIte) -
-                            evalExpr(tkl, mainOperatorIte + 1, end));
+                EVAL_RETURN(evalExpr(beg, mainOperatorIte) -
+                            evalExpr(mainOperatorIte + 1, end));
             case TokenType::MUL:
             {
-                auto l = evalExpr(tkl, beg, mainOperatorIte);
+                auto l = evalExpr(beg, mainOperatorIte);
                 if (l == operand_zero) EVAL_RETURN(operand_zero);
-                EVAL_RETURN(l * evalExpr(tkl, mainOperatorIte + 1, end));
+                EVAL_RETURN(l * evalExpr(mainOperatorIte + 1, end));
             }
             case TokenType::DIV:
             {
-                auto denominator = evalExpr(tkl, mainOperatorIte + 1, end);
+                auto denominator = evalExpr(mainOperatorIte + 1, end);
                 EVAL_THROW(denominator == operand_zero, EVAL_DIV_BY_ZERO);
-                EVAL_RETURN(evalExpr(tkl, beg, mainOperatorIte) / denominator);
+                EVAL_RETURN(evalExpr(beg, mainOperatorIte) / denominator);
             }
             case TokenType::POW:
-                EVAL_RETURN(std::pow(evalExpr(tkl, beg, mainOperatorIte),
-                                     evalExpr(tkl, mainOperatorIte + 1, end)));
+                EVAL_RETURN(std::pow(evalExpr(beg, mainOperatorIte),
+                                     evalExpr(mainOperatorIte + 1, end)));
             default:
                 EVAL_THROW(1, EVAL_INVALID_EXPR);
         }
@@ -131,13 +130,13 @@ operand_t Context::evalExpr(const TokenList& tkl,
     if (beg->isLParen())  // "(1+2)", "(1+2)*3"
     {
         EVAL_THROW(!(end - 1)->isRParen(), EVAL_PAREN_MISMATCH);
-        EVAL_RETURN(evalExpr(tkl, beg + 1, end - 1));
+        EVAL_RETURN(evalExpr(beg + 1, end - 1));
     }
 
     auto fIte = funcTable.find(beg->getSymbol());
     EVAL_THROW(fIte == funcTable.end(), EVAL_UNDEFINED_SYMBOL);
     EVAL_THROW(!(end - 1)->isRParen(), EVAL_PAREN_MISMATCH);
-    EVAL_RETURN(fIte->second.eval(*this, tkl, beg, end));
+    EVAL_RETURN(fIte->second.eval(*this, beg, end));
 }
 
 bool Context::DefFunc(const TokenList& tkl)
@@ -331,11 +330,11 @@ void Context::importMath()
 
             auto begIte = ++ite;
             ite = findArgSep(begIte, tkl.end());
-            operand_t beg = context.evalExpr(tkl, begIte, ite);
+            operand_t beg = context.evalExpr(begIte, ite);
 
             auto endIte = ++ite;
             ite = findArgSep(endIte, tkl.end());
-            operand_t end = context.evalExpr(tkl, endIte, ite);
+            operand_t end = context.evalExpr(endIte, ite);
 
             operand_t step;
             if (ite->isComma())
@@ -343,7 +342,7 @@ void Context::importMath()
                 auto stepIte = ++ite;
                 ite = findArgSep(stepIte, tkl.end());
                 EVAL_THROW(!ite->isRParen(), EVAL_WRONG_NUMBER_OF_ARGS);
-                step = context.evalExpr(tkl, stepIte, ite);
+                step = context.evalExpr(stepIte, ite);
                 EVAL_THROW((end - beg) * step < operand_zero,
                            EVAL_INFINITE_LOOP);
             }
@@ -358,14 +357,14 @@ void Context::importMath()
                 for (operand_t x = beg; x < end; x += step)
                 {
                     dummyVarVal = x;
-                    s += context.evalExpr(exprTokens, exprTokens.begin(),
+                    s += context.evalExpr(exprTokens.begin(),
                                           exprTokens.end());
                 }
             else
                 for (operand_t x = beg; x > end; x += step)
                 {
                     dummyVarVal = x;
-                    s += context.evalExpr(exprTokens, exprTokens.begin(),
+                    s += context.evalExpr(exprTokens.begin(),
                                           exprTokens.end());
                 }
             context.varTable.erase(dummyVar);
@@ -389,11 +388,11 @@ void Context::importMath()
 
             auto begIte = ++ite;
             ite = findArgSep(begIte, tkl.end());
-            operand_t beg = context.evalExpr(tkl, begIte, ite);
+            operand_t beg = context.evalExpr(begIte, ite);
 
             auto endIte = ++ite;
             ite = findArgSep(endIte, tkl.end());
-            operand_t end = context.evalExpr(tkl, endIte, ite);
+            operand_t end = context.evalExpr(endIte, ite);
 
             operand_t step;
             if (ite->isComma())
@@ -401,7 +400,7 @@ void Context::importMath()
                 auto stepIte = ++ite;
                 ite = findArgSep(stepIte, tkl.end());
                 EVAL_THROW(!ite->isRParen(), EVAL_WRONG_NUMBER_OF_ARGS);
-                step = context.evalExpr(tkl, stepIte, ite);
+                step = context.evalExpr(stepIte, ite);
                 EVAL_THROW((end - beg) * step < operand_zero,
                            EVAL_INFINITE_LOOP);
             }
@@ -416,14 +415,14 @@ void Context::importMath()
                 for (operand_t x = beg; x < end; x += step)
                 {
                     dummyVarVal = x;
-                    s *= context.evalExpr(exprTokens, exprTokens.begin(),
+                    s *= context.evalExpr(exprTokens.begin(),
                                           exprTokens.end());
                 }
             else
                 for (operand_t x = beg; x > end; x += step)
                 {
                     dummyVarVal = x;
-                    s *= context.evalExpr(exprTokens, exprTokens.begin(),
+                    s *= context.evalExpr(exprTokens.begin(),
                                           exprTokens.end());
                 }
             context.varTable.erase(dummyVar);
@@ -435,12 +434,12 @@ void Context::importMath()
         [](const TokenList& tkl, Context& context) -> operand_t
         {
             auto ite = findArgSep(tkl.begin(), tkl.end());
-            operand_t cond = context.evalExpr(tkl, tkl.begin(), ite);
+            operand_t cond = context.evalExpr(tkl.begin(), ite);
             auto trueIte = ++ite;
             auto trueEndIte = findArgSep(trueIte, tkl.end());
             return cond != operand_zero
-                       ? context.evalExpr(tkl, trueIte, trueEndIte)
-                       : context.evalExpr(tkl, trueEndIte + 1, tkl.end() - 1);
+                       ? context.evalExpr(trueIte, trueEndIte)
+                       : context.evalExpr(trueEndIte + 1, tkl.end() - 1);
         });
 }
 }  // namespace eval

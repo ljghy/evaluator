@@ -34,7 +34,7 @@ class Function
 
     void setArguments(const TokenList& args, TokenList& tkl);
 
-    operand_t eval(Context& context, const TokenList& tkl,
+    operand_t eval(Context& context,
                    const TokenList::const_iterator& beg,
                    const TokenList::const_iterator& end);
 };
