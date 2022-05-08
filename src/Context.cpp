@@ -16,15 +16,15 @@ namespace eval
 Context::Context() : depth(0)
 {
     varTable["ANS"] = operand_zero;
-    srand(time(0));
+    srand(static_cast<unsigned int>(time(NULL)));
 }
 
-std::pair<ExprType, operand_t> Context::exec(const std::string& input)
+std::pair<ExprType, operand_t> Context::exec(const std::string &input)
 {
     depth = 0;
     auto tkList = TokenList(input);
     if (tkList.size() > 2 && tkList[0].isSymbol() &&
-        tkList[1].isEq())  // Assigning value to variable
+        tkList[1].isEq()) // Assigning value to variable
     {
         varTable[tkList.begin()->getSymbol()] =
             evalExpr(tkList.begin() + 2, tkList.end());
@@ -38,15 +38,16 @@ std::pair<ExprType, operand_t> Context::exec(const std::string& input)
             varTable["ANS"] = evalExpr(tkList.begin(), tkList.end())};
 }
 
-operand_t Context::evalExpr(const TokenList::const_iterator& beg,
-                            const TokenList::const_iterator& end)
+operand_t Context::evalExpr(const TokenList::const_iterator &beg,
+                            const TokenList::const_iterator &end)
 {
     EVAL_THROW(beg >= end, EVAL_INVALID_EXPR);
     EVAL_THROW(depth > maxRecursionDepth, EVAL_STACK_OVERFLOW);
     ++depth;
-    if (beg + 1 == end)  // "1", "x"
+    if (beg + 1 == end) // "1", "x"
     {
-        if (beg->isOperand()) EVAL_RETURN(beg->getOperand());
+        if (beg->isOperand())
+            EVAL_RETURN(beg->getOperand());
         EVAL_THROW(!beg->isSymbol(), EVAL_INVALID_EXPR);
         auto vIte = varTable.find(beg->getSymbol());
         EVAL_THROW(vIte == varTable.end(), EVAL_UNDEFINED_SYMBOL);
@@ -55,7 +56,7 @@ operand_t Context::evalExpr(const TokenList::const_iterator& beg,
     int minPre = 4;
     TokenList::const_iterator mainOperatorIte;
 
-    if (beg->isSub())  // "-x", "-(1)", "-(x+1)+3"
+    if (beg->isSub()) // "-x", "-(1)", "-(x+1)+3"
     {
         int inParen = 0;
         auto ite = beg + 1;
@@ -102,32 +103,33 @@ operand_t Context::evalExpr(const TokenList::const_iterator& beg,
     {
         switch (mainOperatorIte->type)
         {
-            case TokenType::ADD:
-                EVAL_RETURN(evalExpr(beg, mainOperatorIte) +
-                            evalExpr(mainOperatorIte + 1, end));
-            case TokenType::SUB:
-                EVAL_RETURN(evalExpr(beg, mainOperatorIte) -
-                            evalExpr(mainOperatorIte + 1, end));
-            case TokenType::MUL:
-            {
-                auto l = evalExpr(beg, mainOperatorIte);
-                if (l == operand_zero) EVAL_RETURN(operand_zero);
-                EVAL_RETURN(l * evalExpr(mainOperatorIte + 1, end));
-            }
-            case TokenType::DIV:
-            {
-                auto denominator = evalExpr(mainOperatorIte + 1, end);
-                EVAL_THROW(denominator == operand_zero, EVAL_DIV_BY_ZERO);
-                EVAL_RETURN(evalExpr(beg, mainOperatorIte) / denominator);
-            }
-            case TokenType::POW:
-                EVAL_RETURN(std::pow(evalExpr(beg, mainOperatorIte),
-                                     evalExpr(mainOperatorIte + 1, end)));
-            default:
-                EVAL_THROW(1, EVAL_INVALID_EXPR);
+        case TokenType::ADD:
+            EVAL_RETURN(evalExpr(beg, mainOperatorIte) +
+                        evalExpr(mainOperatorIte + 1, end));
+        case TokenType::SUB:
+            EVAL_RETURN(evalExpr(beg, mainOperatorIte) -
+                        evalExpr(mainOperatorIte + 1, end));
+        case TokenType::MUL:
+        {
+            auto l = evalExpr(beg, mainOperatorIte);
+            if (l == operand_zero)
+                EVAL_RETURN(operand_zero);
+            EVAL_RETURN(l * evalExpr(mainOperatorIte + 1, end));
+        }
+        case TokenType::DIV:
+        {
+            auto denominator = evalExpr(mainOperatorIte + 1, end);
+            EVAL_THROW(denominator == operand_zero, EVAL_DIV_BY_ZERO);
+            EVAL_RETURN(evalExpr(beg, mainOperatorIte) / denominator);
+        }
+        case TokenType::POW:
+            EVAL_RETURN(std::pow(evalExpr(beg, mainOperatorIte),
+                                 evalExpr(mainOperatorIte + 1, end)));
+        default:
+            EVAL_THROW(1, EVAL_INVALID_EXPR);
         }
     }
-    if (beg->isLParen())  // "(1+2)", "(1+2)*3"
+    if (beg->isLParen()) // "(1+2)", "(1+2)*3"
     {
         EVAL_THROW(!(end - 1)->isRParen(), EVAL_PAREN_MISMATCH);
         EVAL_RETURN(evalExpr(beg + 1, end - 1));
@@ -139,10 +141,12 @@ operand_t Context::evalExpr(const TokenList::const_iterator& beg,
     EVAL_RETURN(fIte->second.eval(*this, beg, end));
 }
 
-bool Context::DefFunc(const TokenList& tkl)
+bool Context::DefFunc(const TokenList &tkl)
 {
-    if (tkl.size() < 6) return false;  // f(x)=x
-    if ((!tkl[0].isSymbol()) || (!(tkl[1].isLParen()))) return false;
+    if (tkl.size() < 6)
+        return false; // f(x)=x
+    if ((!tkl[0].isSymbol()) || (!(tkl[1].isLParen())))
+        return false;
     bool foundEq = false;
     TokenList::const_iterator rParenIte;
     for (auto ite = tkl.begin() + 3; ite != tkl.end() - 1; ++ite)
@@ -152,18 +156,22 @@ bool Context::DefFunc(const TokenList& tkl)
             rParenIte = ite;
             break;
         }
-    if (!foundEq) return false;
-    std::unordered_map<std::string, int> parameterMap;
+    if (!foundEq)
+        return false;
+    std::unordered_map<std::string, size_t> parameterMap;
 
     size_t idx = 0;
     for (auto ite = tkl.begin() + 2; ite != rParenIte; ++ite)
     {
-        if (!ite->isSymbol()) return false;
+        if (!ite->isSymbol())
+            return false;
         EVAL_THROW(parameterMap.find(ite->getSymbol()) != parameterMap.end(),
                    EVAL_REPEATED_PARAMETER_NAME);
         parameterMap[ite->getSymbol()] = idx++;
-        if (++ite == rParenIte) break;
-        if (!ite->isComma()) return false;
+        if (++ite == rParenIte)
+            break;
+        if (!ite->isComma())
+            return false;
     }
     Function f(rParenIte + 2, tkl.end());
     f.parameterTable.resize(parameterMap.size());
@@ -189,125 +197,125 @@ void Context::importMath()
 
     funcTable["eq"] =
         Function(FuncType::ORDINARY,
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return tkl[0].getOperand() == tkl[1].getOperand(); });
 
     funcTable["neq"] =
         Function(FuncType::ORDINARY,
 
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return tkl[0].getOperand() != tkl[1].getOperand(); });
 
     funcTable["leq"] =
         Function(FuncType::ORDINARY,
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return tkl[0].getOperand() <= tkl[1].getOperand(); });
 
     funcTable["lt"] =
         Function(FuncType::ORDINARY,
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return tkl[0].getOperand() < tkl[1].getOperand(); });
 
     funcTable["geq"] =
         Function(FuncType::ORDINARY,
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return tkl[0].getOperand() >= tkl[1].getOperand(); });
 
     funcTable["gt"] =
         Function(FuncType::ORDINARY,
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return tkl[0].getOperand() > tkl[1].getOperand(); });
 
 #ifdef EVAL_DECIMAL_OPERAND
     funcTable["ln"] = Function(FuncType::ORDINARY,
-                               [](const TokenList& tkl, Context&) -> operand_t
+                               [](const TokenList &tkl, Context &) -> operand_t
                                { return log(tkl[0].getOperand()); });
 
     funcTable["lg"] = Function(FuncType::ORDINARY,
-                               [](const TokenList& tkl, Context&) -> operand_t
+                               [](const TokenList &tkl, Context &) -> operand_t
                                { return log10(tkl[0].getOperand()); });
 
     funcTable["log"] = Function(
         FuncType::ORDINARY,
-        [](const TokenList& tkl, Context&) -> operand_t
+        [](const TokenList &tkl, Context &) -> operand_t
         { return log(tkl[1].getOperand()) / log(tkl[0].getOperand()); });
 
     funcTable["sin"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 { return sin(tkl[0].getOperand()); });
     funcTable["cos"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 { return cos(tkl[0].getOperand()); });
     funcTable["tan"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 { return tan(tkl[0].getOperand()); });
 
     funcTable["asin"] = Function(FuncType::ORDINARY,
-                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 [](const TokenList &tkl, Context &) -> operand_t
                                  { return asin(tkl[0].getOperand()); });
     funcTable["acos"] = Function(FuncType::ORDINARY,
-                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 [](const TokenList &tkl, Context &) -> operand_t
                                  { return acos(tkl[0].getOperand()); });
     funcTable["atan"] = Function(FuncType::ORDINARY,
-                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 [](const TokenList &tkl, Context &) -> operand_t
                                  { return atan(tkl[0].getOperand()); });
 
     funcTable["gamma"] =
         Function(FuncType::ORDINARY,
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return tgamma(tkl[0].getOperand()); });
 
     funcTable["floor"] =
         Function(FuncType::ORDINARY,
-                 [](const TokenList& tkl, Context&) -> operand_t
+                 [](const TokenList &tkl, Context &) -> operand_t
                  { return floor(tkl[0].getOperand()); });
     funcTable["ceil"] = Function(FuncType::ORDINARY,
-                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 [](const TokenList &tkl, Context &) -> operand_t
                                  { return ceil(tkl[0].getOperand()); });
     funcTable["exp"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 { return exp(tkl[0].getOperand()); });
     funcTable["erf"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 { return erf(tkl[0].getOperand()); });
 #endif
 
     funcTable["abs"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 {
 #ifdef EVAL_DECIMAL_OPERAND
                                     return fabs(tkl[0].getOperand());
 #else
-                                    return abs(tkl[0].getOperand());
+            return abs(tkl[0].getOperand());
 #endif
                                 });
 
     funcTable["rand"] = Function(FuncType::ORDINARY,
-                                 [](const TokenList& tkl, Context&) -> operand_t
+                                 [](const TokenList &tkl, Context &) -> operand_t
                                  {
                                      auto a = tkl[0].getOperand(),
                                           b = tkl[1].getOperand();
 #ifdef EVAL_DECIMAL_OPERAND
                                      return a + rand() * (b - a) / RAND_MAX;
 #else
-                                    return a + rand()%(b-a);
+            return a + rand() % (b - a);
 #endif
                                  });
 
     funcTable["max"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 {
                                     operand_t m = tkl[0].getOperand();
-                                    for (const auto& t : tkl)
+                                    for (const auto &t : tkl)
                                         if (t.getOperand() > m)
                                             m = t.getOperand();
                                     return m;
                                 });
     funcTable["min"] = Function(FuncType::ORDINARY,
-                                [](const TokenList& tkl, Context&) -> operand_t
+                                [](const TokenList &tkl, Context &) -> operand_t
                                 {
                                     operand_t m = tkl[0].getOperand();
-                                    for (const auto& t : tkl)
+                                    for (const auto &t : tkl)
                                         if (t.getOperand() < m)
                                             m = t.getOperand();
                                     return m;
@@ -315,15 +323,15 @@ void Context::importMath()
 
     funcTable["SUM"] = Function(
         FuncType::HIGH_ORDER,
-        [](const TokenList& tkl, Context& context) -> operand_t
+        [](const TokenList &tkl, Context &context) -> operand_t
         {
             auto ite = findArgSep(tkl.begin(), tkl.end());
             TokenList exprTokens(tkl.begin(), ite);
 
             std::string dummyVar = (++ite)->getSymbol();
-            for (auto& t : exprTokens)
+            for (auto &t : exprTokens)
                 if (t.isSymbol() && t.getSymbol() == dummyVar)
-                    t = Token("#" + t.getSymbol());  // temp variable
+                    t = Token("#" + t.getSymbol()); // temp variable
             dummyVar = "#" + dummyVar;
             ++ite;
             EVAL_THROW(!ite->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
@@ -343,17 +351,17 @@ void Context::importMath()
                 ite = findArgSep(stepIte, tkl.end());
                 EVAL_THROW(!ite->isRParen(), EVAL_WRONG_NUMBER_OF_ARGS);
                 step = context.evalExpr(stepIte, ite);
-                EVAL_THROW((end - beg) * step < operand_zero,
+                EVAL_THROW(step == operand_zero,
                            EVAL_INFINITE_LOOP);
             }
             else
-                step = beg > end ? -operand_one : operand_one;
+                step = operand_one;
             operand_t s = operand_zero;
 
-            auto& dummyVarVal =
+            auto &dummyVarVal =
                 context.varTable.insert(std::make_pair(dummyVar, operand_zero))
                     .first->second;
-            if (beg < end)
+            if (step > operand_zero)
                 for (operand_t x = beg; x < end; x += step)
                 {
                     dummyVarVal = x;
@@ -373,15 +381,15 @@ void Context::importMath()
 
     funcTable["MUL"] = Function(
         FuncType::HIGH_ORDER,
-        [](const TokenList& tkl, Context& context) -> operand_t
+        [](const TokenList &tkl, Context &context) -> operand_t
         {
             auto ite = findArgSep(tkl.begin(), tkl.end());
             TokenList exprTokens(tkl.begin(), ite);
 
             std::string dummyVar = (++ite)->getSymbol();
-            for (auto& t : exprTokens)
+            for (auto &t : exprTokens)
                 if (t.isSymbol() && t.getSymbol() == dummyVar)
-                    t = Token("#" + t.getSymbol());  // temp variable
+                    t = Token("#" + t.getSymbol()); // temp variable
             dummyVar = "#" + dummyVar;
             ++ite;
             EVAL_THROW(!ite->isComma(), EVAL_WRONG_NUMBER_OF_ARGS);
@@ -401,17 +409,17 @@ void Context::importMath()
                 ite = findArgSep(stepIte, tkl.end());
                 EVAL_THROW(!ite->isRParen(), EVAL_WRONG_NUMBER_OF_ARGS);
                 step = context.evalExpr(stepIte, ite);
-                EVAL_THROW((end - beg) * step < operand_zero,
+                EVAL_THROW(step == operand_zero,
                            EVAL_INFINITE_LOOP);
             }
             else
-                step = beg > end ? -operand_one : operand_one;
+                step = operand_one;
             operand_t s = operand_one;
 
-            auto& dummyVarVal =
+            auto &dummyVarVal =
                 context.varTable.insert(std::make_pair(dummyVar, operand_zero))
                     .first->second;
-            if (beg < end)
+            if (step > operand_zero)
                 for (operand_t x = beg; x < end; x += step)
                 {
                     dummyVarVal = x;
@@ -431,7 +439,7 @@ void Context::importMath()
 
     funcTable["IF_ELSE"] = Function(
         FuncType::HIGH_ORDER,
-        [](const TokenList& tkl, Context& context) -> operand_t
+        [](const TokenList &tkl, Context &context) -> operand_t
         {
             auto ite = findArgSep(tkl.begin(), tkl.end());
             operand_t cond = context.evalExpr(tkl.begin(), ite);
@@ -442,4 +450,4 @@ void Context::importMath()
                        : context.evalExpr(trueEndIte + 1, tkl.end() - 1);
         });
 }
-}  // namespace eval
+} // namespace eval
