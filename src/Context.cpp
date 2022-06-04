@@ -54,28 +54,27 @@ operand_t Context::evalExpr(const TokenList::const_iterator &beg,
         EVAL_RETURN(vIte->second);
     }
     int minPre = 4;
-    TokenList::const_iterator mainOperatorIte;
+    TokenList::const_iterator mainOperatorIte = end;
 
     if (beg->isSub()) // "-x", "-(1)", "-(x+1)+3"
     {
         int inParen = 0;
-        auto ite = beg + 1;
-        for (; ite != end; ++ite)
+
+        for (auto ite = beg + 1; ite != end; ++ite)
         {
             if (ite->isLParen())
                 ++inParen;
             else if (ite->isRParen())
                 --inParen;
             else if (!inParen && (ite->isAdd() || ite->isSub()))
-                break;
+                mainOperatorIte = ite;
         }
-        if (ite == end)
+        if (mainOperatorIte == end)
         {
             EVAL_THROW(inParen, EVAL_PAREN_MISMATCH);
             EVAL_RETURN(-evalExpr(beg + 1, end));
         }
         minPre = 1;
-        mainOperatorIte = ite;
     }
 
     if (minPre == 4)
